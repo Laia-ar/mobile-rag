@@ -9,6 +9,9 @@ Esta iniciado usando un template de react native.
 Luego se agrego una UI simple de chat la cual tiene interaccion 
 con un LLM que se puede descargar.
 
+![screenshot](./screenshot.png)
+
+
 Proximos pasos:
  * agregar sqlite (https://github.com/sqliteai/sqlite-vector) 
  * agregar settings para tomar base de datos y apuntar modelos aprobados
