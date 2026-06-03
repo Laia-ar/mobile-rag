@@ -25,6 +25,8 @@ Proximos pasos:
 3) Enchufar un telefono por USB en modo Dev activado
 4) Iniciar dev (pnpm start) y instalar la app en el telefono (pnpm run android)
 
+
+
 ## Para probar en iOS
 
 En curso
