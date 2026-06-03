@@ -9,7 +9,7 @@ Esta iniciado usando un template de react native.
 Luego se agrego una UI simple de chat la cual tiene interaccion 
 con un LLM que se puede descargar.
 
-![screenshot](./screenshot.png)
+![latest screenshot of the app](./__screenshot.png)
 
 
 Proximos pasos:
