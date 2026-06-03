@@ -1,0 +1,6 @@
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export PATH=$JAVA_HOME/bin:$PATH
+export ANDROID_HOME=/media/luffy/Android/Sdk 
+export PATH=$ANDROID_HOME/platform-tools:$PATH
+export PATH=$ANDROID_HOME/emulator:$PATH
+export GRADLE_USER_HOME=/media/shanks/storage/gradle

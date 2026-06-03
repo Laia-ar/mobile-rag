@@ -32,3 +32,5 @@ target 'AwesomeProject' do
     )
   end
 end
+
+$RNLLAMA_BUILD_FROM_SOURCE = false  

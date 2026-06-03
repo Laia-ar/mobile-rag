@@ -10,7 +10,7 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import {ChatScreen} from "./Chat"
+import { ChatScreen } from "./components/Chat";
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
