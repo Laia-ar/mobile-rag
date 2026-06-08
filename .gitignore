@@ -76,3 +76,5 @@ yarn-error.log
 
 # custom
 android/keys/
+
+/corpus*

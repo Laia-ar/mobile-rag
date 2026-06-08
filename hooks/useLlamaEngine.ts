@@ -13,15 +13,14 @@
  * ------------------------------------------------------------------
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { Platform, Alert } from 'react-native';
 import {
   CompletionParams,
   ContextParams,
   initLlama,
-  LlamaContext,
-  releaseAllLlama,
+  LlamaContext
 } from 'llama.rn';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 
 /**

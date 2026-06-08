@@ -25,7 +25,21 @@ Proximos pasos:
 3) Enchufar un telefono por USB en modo Dev activado
 4) Iniciar dev (pnpm start) y instalar la app en el telefono (pnpm run android)
 
+## Crear virtual device
 
+1) Obtener Android SDK y CommandLineTools
+2) source environment
+3) Crear un descargar imagen: `sdkmanager "system-images;android-33;google_apis;x86_64"`
+4) Crear un device: `avdmanager create avd -n Test_Device -k "system-images;android-33;google_apis;x86_64" -p $ANDROID_AVD_HOME`
+5) Listar devices: `emulator -list-avds`
+6) Usar un device: `emulator -avd Test_Device`
+
+Comandos comunes:
+List running emulators: `adb devices`
+Install an app: `adb install pandroid/app/build/outputs/apk/release/app-release.apk`
+Shell: `adb shell`
+Shut down: `adb emu kill`
+Stop app: `adb shell am force-stop ar.laia.palmera.dev`
 
 ## Para probar en iOS
 
