@@ -59,3 +59,35 @@ Documento: Municipios_Genero_y_territorio_08_dig.pdf
 
 Es necesario tener instalado SQLite, SQLite-vec, Llama.cpp y jq
 
+Ejemplo de prueba:
+
+```
+$ ./test_knowledge.sh 'que se dice sobre el precio de servicio de salud a personas afectadas por el VIH?'
+Documento: Guia de atencion del VIH en el primer nivel.pdf 0.736748754978179931
+==============
+el resto de los servicios de salud, cuando:
+============
+Documento: Guia_Uso_de_PrEP_como_parte_estrategia_prevencion_combinada.pdf 0.782974481582641601
+==============
+mentada al VIH y las ITS de algunas poblaciones, incluir los determinantes sociales 
+de la salud en el proceso de gestión y atención, y reducir las barreras en el acceso a 
+los recursos y servicios de salud.
+La implementación de la prevención combinada es un desafío que precisa de la 
+articulación de los servicios de salud de centros de salud y hospitales, en conjunto 
+con los espacios de toma de decisión y las organizaciones de la sociedad civil para 
+posicionar una respuesta centrada en la comunidad.
+============
+Documento: algoritmos_vih_sifilis_hepatitis_b_y_chagas_2025_27052025.pdf 0.788639247417449951
+==============
+to de infección por VIH sin exponer juicios de valor ni brindar la 
+información desde la propia creencia o conveniencia.
+	
+■Para promover la autonomía en las decisiones sobre la lactan-
+cia, sin estigma, discriminación, ni violencia se recomienda lle-
+var adelante un Proceso de decisiones compartidas. Constituye 
+uno de los elementos centrales del abordaje de servicios de salud 
+centrado en las personas, basado en evidencia científica y que 
+toma en cuenta el escenario particular de los servicios de salud
+============
+```
+

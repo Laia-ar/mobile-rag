@@ -10,4 +10,4 @@ QUERY="select chunk_id, distance, document_id, content from vec_chunks where emb
 
 DOCS=$(echo $QUERY | sqlite3 -readonly -cmd ".load $SQLITE/dist/vec0.so" android/app/src/main/assets/knowledge.current/corpus.sqlite -json)
 
-echo $DOCS | jq '.[] | "Documento: \(.document_id)\n==============\n\(.content)\n============"' -r
+echo $DOCS | jq '.[] | "Documento: \(.document_id) \(.distance)\n==============\n\(.content)\n============"' -r
