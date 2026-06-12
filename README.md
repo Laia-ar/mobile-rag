@@ -48,7 +48,7 @@ En curso
 ## Para probar las consultas
 
 ```
-$ ./query_database.sh "¿Qué es la PrEP y quién debería considerar tomarla?"
+$ ./test_knowledge.sh "¿Qué es la PrEP y quién debería considerar tomarla?"
 Documento: 2025-06_Recomendaciones de diagnóstico y tratamiento de las Infecciones de Transmisión Sexual.pdf
 
 Documento: Guia_Uso_de_PrEP_como_parte_estrategia_prevencion_combinada.pdf
