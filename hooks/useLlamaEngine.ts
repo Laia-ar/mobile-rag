@@ -17,7 +17,8 @@ import {
   CompletionParams,
   ContextParams,
   initLlama,
-  LlamaContext
+  LlamaContext,
+  NativeEmbeddingParams,
 } from 'llama.rn';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
@@ -387,6 +388,35 @@ export function useLlamaEngine(options: {
     [status, completionParams, onToken, onStats],
   );
 
+  const vectorize = useCallback(
+    async (message: string) => {
+      if (!contextRef.current) throw new Error('Modelo no cargado');
+      if (status === 'generating')
+        throw new Error('Ya hay una generación en curso');
+
+      setStatus('generating');
+      abortRef.current = false;
+
+      const params: NativeEmbeddingParams = {};
+
+      try {
+        const result = await contextRef.current.embedding(message, params);
+
+        setStatus('ready');
+        return result.embedding;
+      } catch (err) {
+        if (!abortRef.current) {
+          setError(toError(err).message);
+          setStatus('error');
+        } else {
+          setStatus('ready');
+        }
+        return [];
+      }
+    },
+    [status, completionParams],
+  );
+
   /**
    * Detiene la generación en curso.
    */
@@ -446,10 +476,7 @@ export function useLlamaEngine(options: {
     error,
     downloadProgress,
     tokensPerSec,
-    isReady: status === 'ready',
-    isLoading: status === 'loading',
-    isGenerating: status === 'generating',
-
+    vectorize,
     loadModelFromPath,
     loadModelFromUrl,
     stopDownload,

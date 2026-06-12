@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  Fragment,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -17,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { useLlamaEngine } from '../hooks/useLlamaEngine';
+import { useSQLiteRAG } from '../hooks/useRagEngine';
 
 // ---------------------------------------------------------------------------
 // Types & constants
@@ -586,9 +593,6 @@ function InputBar({ colors, onSend, loading }: any) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Header
-// ---------------------------------------------------------------------------
 function Header({ colors, onMenuPress, onNewChat, modelName }: any) {
   return (
     <View
@@ -644,8 +648,15 @@ export function ChatScreen() {
     completionParams: { temperature: 0.7, n_predict: 512 },
   });
 
+  const rag = useSQLiteRAG({
+    assetDbName: 'knowledge.current/corpus.sqlite',
+    embeddingTable: 'vec_chunks',
+    embeddingDim: 384, // FIXME: from json
+  });
+
   const handleSend = useCallback(
     async (text: string) => {
+      setLoading(true);
       // 1. Agregar mensaje del usuario y el spinner
       const userMsg: Message = {
         id: generateId(),
@@ -675,6 +686,9 @@ export function ChatScreen() {
       let partial = '';
       const aiMsgId = generateId();
 
+      const vec = await llama.vectorize(text);
+      const docs = await rag.similaritySearch(vec);
+
       await llama.generate(
         history,
         'Eres un asistente útil y conciso.',
@@ -698,62 +712,17 @@ export function ChatScreen() {
           });
         },
       );
+      setLoading(false);
     },
     [messages, llama],
   );
 
-  // const handleSend = useCallback(
-  //   async (text: string) => {
-  //     const userMsg = {
-  //       id: generateId(),
-  //       role: 'user',
-  //       content: text,
-  //       timestamp: new Date(),
-  //     };
-
-  //     setMessages(prev => [
-  //       ...prev,
-  //       userMsg,
-  //       {
-  //         id: 'typing',
-  //         role: 'assistant',
-  //         content: '',
-  //         typing: true,
-  //         timestamp: new Date(),
-  //       },
-  //     ]);
-  //     setLoading(true);
-  //     scrollToBottom();
-
-  //     // Simulate AI response (replace with real API call)
-  //     await new Promise<void>(res =>
-  //       setTimeout(res, 1400 + Math.random() * 800),
-  //     );
-
-  //     const response = simulateResponse(text);
-
-  //     setMessages(prev => [
-  //       ...prev.filter(m => m.id !== 'typing'),
-  //       {
-  //         id: generateId(),
-  //         role: 'assistant',
-  //         content: response,
-  //         timestamp: new Date(),
-  //       },
-  //     ]);
-  //     setLoading(false);
-  //     scrollToBottom();
-  //   },
-  //   [scrollToBottom],
-  // );
-
-
-  async function loadModel(s: 'mistral' | 'llama3' | 'chatml'): Promise<void> {
-    await llama.loadModelFromUrl(
-      'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
-      'llama3-1b-q4.gguf',
-    );
-  }
+  // async function loadModel(s: 'mistral' | 'llama3' | 'chatml'): Promise<void> {
+  //   await llama.loadModelFromUrl(
+  //     'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
+  //     'llama3-1b-q4.gguf',
+  //   );
+  // }
   const handleNewChat = useCallback(() => {
     setMessages(INITIAL_MESSAGES);
   }, []);
@@ -778,7 +747,7 @@ export function ChatScreen() {
         colors={colors}
         onMenuPress={() => setSidebarOpen(true)}
         onNewChat={handleNewChat}
-        modelName="Asistente IA"
+        modelName={llama.modelName ?? 'Asistente IA'}
       />
 
       <KeyboardAvoidingView
@@ -793,7 +762,11 @@ export function ChatScreen() {
           contentContainerStyle={[styles.messageList, showEmpty && { flex: 1 }]}
           ListHeaderComponent={
             showEmpty ? (
-              <WelcomeBanner colors={colors} onLoad={loadModel} />
+              <WelcomeBanner
+                colors={colors}
+                // onLoad={loadModel}
+                selectModel={!llama.modelName}
+              />
             ) : null
           }
           ListFooterComponent={
@@ -803,17 +776,23 @@ export function ChatScreen() {
               <View style={{ height: 16 }} />
             )
           }
-          renderItem={({ item, index }) => (
-            <MessageBubble
-              message={item}
-              colors={colors}
-              isLast={index === messages.length - 1}
-            />
-          )}
+          renderItem={({ item, index }) =>
+            !llama.modelName ? (
+              <Fragment />
+            ) : (
+              <MessageBubble
+                message={item}
+                colors={colors}
+                isLast={index === messages.length - 1}
+              />
+            )
+          }
           onContentSizeChange={scrollToBottom}
         />
 
-        <InputBar colors={colors} onSend={handleSend} loading={loading} />
+        {!llama.modelName ? undefined : (
+          <InputBar colors={colors} onSend={handleSend} loading={loading} />
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -824,10 +803,12 @@ export function ChatScreen() {
 // ---------------------------------------------------------------------------
 function WelcomeBanner({
   colors,
-  onLoad,
+  // onLoad,
+  selectModel,
 }: {
   colors: Colors;
-  onLoad: (s: 'mistral' | 'llama3' | 'chatml') => void;
+  selectModel: boolean;
+  // onLoad: (s: 'mistral' | 'llama3' | 'chatml') => void;
 }) {
   return (
     <View style={styles.welcomeWrap}>
@@ -835,10 +816,10 @@ function WelcomeBanner({
         <Text style={{ fontSize: 28 }}>✦</Text>
       </View>
       <Text style={[styles.welcomeTitle, { color: colors.text }]}>
-        ¿En qué puedo{'\n'}ayudarte hoy?
+        {`¿En qué puedo\nayudarte hoy?`}
       </Text>
 
-      <TouchableOpacity
+      {/* <TouchableOpacity
         onPress={() => onLoad('llama3')}
         style={[
           styles.chip,
@@ -873,7 +854,7 @@ function WelcomeBanner({
         <Text style={[styles.chipText, { color: colors.textSecondary }]}>
           Mistral
         </Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
   );
 }

@@ -1,9 +1,23 @@
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-export PATH=$JAVA_HOME/bin:$PATH
-export ANDROID_HOME=/media/luffy/Android/Sdk 
+## para desarrollo en android
+# ubicacion de la JDK (https://openjdk.org/)
+export JAVA_HOME=
+
+# ubicacion de Android SDK (https://developer.android.com/studio#command-line-tools-only)
+export ANDROID_HOME=
 export ANDROID_AVD_HOME=$ANDROID_HOME/avd
+
+# ubicacion donde gradle descarga las dependencias
+export GRADLE_USER_HOME=
+
+## Para probar las consultas a la base de datos
+# ubicacion de la instalacion de Llama.cpp (llama-server y llama-embedding) (https://github.com/ggml-org/llama.cpp)
+export LLAMACPP=
+# ublicacion de la instalacion de SQLite (https://sqlite.org/) y SQLite-vec (https://github.com/asg017/sqlite-vec)
+export SQLITE=
+
+export PATH=$JAVA_HOME/bin:$PATH
 export PATH=$ANDROID_HOME/platform-tools:$PATH
 export PATH=$ANDROID_HOME/emulator:$PATH
 export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-export GRADLE_USER_HOME=/media/shanks/storage/gradle2
-
+export PATH=$LLAMACPP/bin:$PATH
+export PATH=$SQLITE/dist:$PATH

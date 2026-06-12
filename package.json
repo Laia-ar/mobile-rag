@@ -13,7 +13,9 @@
     "test": "jest"
   },
   "dependencies": {
+    "@op-engineering/op-sqlite": "^16.2.0",
     "@react-native/new-app-screen": "0.85.3",
+    "base-64": "^1.0.0",
     "llama.rn": "^0.12.4",
     "react": "19.2.3",
     "react-native": "0.85.3",
@@ -34,8 +36,10 @@
     "@react-native/jest-preset": "0.85.3",
     "@react-native/metro-config": "0.85.3",
     "@react-native/typescript-config": "0.85.3",
+    "@types/base-64": "^1.0.2",
     "@types/jest": "^29.5.13",
     "@types/react": "^19.2.0",
+    "@types/react-native-sqlite-storage": "^6.0.5",
     "@types/react-test-renderer": "^19.1.0",
     "eslint": "^8.19.0",
     "hermes-compiler": "250829098.0.10",
@@ -46,6 +50,9 @@
   },
   "engines": {
     "node": ">= 22.11.0"
+  },
+  "op-sqlite": {
+    "sqliteVec": true
   },
   "packageManager": "pnpm@9.7.0+sha512.dc09430156b427f5ecfc79888899e1c39d2d690f004be70e05230b72cb173d96839587545d09429b55ac3c429c801b4dc3c0e002f653830a420fa2dd4e3cf9cf"
 }
