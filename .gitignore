@@ -80,3 +80,5 @@ android/keys/
 /corpus*
 *.env
 /android/app/src/main/assets/knowledge.*
+/*.db
+/*.gguf
