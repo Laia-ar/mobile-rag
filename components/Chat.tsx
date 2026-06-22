@@ -643,7 +643,11 @@ export function ChatScreen() {
     }, 60);
   }, []);
 
-  const llama = useLlamaEngine({
+  const chat_llm = useLlamaEngine({
+    contextParams: { n_ctx: 2048 },
+    completionParams: { temperature: 0.7, n_predict: 512 },
+  });
+  const search_llm = useLlamaEngine({
     contextParams: { n_ctx: 2048 },
     completionParams: { temperature: 0.7, n_predict: 512 },
   });
@@ -686,10 +690,10 @@ export function ChatScreen() {
       let partial = '';
       const aiMsgId = generateId();
 
-      const vec = await llama.vectorize(text);
-      const docs = await rag.similaritySearch(vec);
+      const vec = await search_llm.vectorize(text);
+      const docs = await rag.similaritySearch(text, vec);
 
-      await llama.generate(
+      await chat_llm.generate(
         history,
         'Eres un asistente útil y conciso.',
         'llama3',
@@ -705,7 +709,7 @@ export function ChatScreen() {
               {
                 id: aiMsgId,
                 role: 'assistant',
-                content: partial,
+                content: `${partial} docs: ${docs.length}`,
                 timestamp: new Date(),
               },
             ];
@@ -714,15 +718,9 @@ export function ChatScreen() {
       );
       setLoading(false);
     },
-    [messages, llama],
+    [messages, chat_llm, search_llm],
   );
 
-  // async function loadModel(s: 'mistral' | 'llama3' | 'chatml'): Promise<void> {
-  //   await llama.loadModelFromUrl(
-  //     'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
-  //     'llama3-1b-q4.gguf',
-  //   );
-  // }
   const handleNewChat = useCallback(() => {
     setMessages(INITIAL_MESSAGES);
   }, []);
@@ -747,7 +745,7 @@ export function ChatScreen() {
         colors={colors}
         onMenuPress={() => setSidebarOpen(true)}
         onNewChat={handleNewChat}
-        modelName={llama.modelName ?? 'Asistente IA'}
+        modelName={'Asistente IA'}
       />
 
       <KeyboardAvoidingView
@@ -764,8 +762,7 @@ export function ChatScreen() {
             showEmpty ? (
               <WelcomeBanner
                 colors={colors}
-                // onLoad={loadModel}
-                selectModel={!llama.modelName}
+              // onLoad={loadModel}
               />
             ) : null
           }
@@ -777,22 +774,16 @@ export function ChatScreen() {
             )
           }
           renderItem={({ item, index }) =>
-            !llama.modelName ? (
-              <Fragment />
-            ) : (
-              <MessageBubble
-                message={item}
-                colors={colors}
-                isLast={index === messages.length - 1}
-              />
-            )
+            <MessageBubble
+              message={item}
+              colors={colors}
+              isLast={index === messages.length - 1}
+            />
           }
           onContentSizeChange={scrollToBottom}
         />
 
-        {!llama.modelName ? undefined : (
-          <InputBar colors={colors} onSend={handleSend} loading={loading} />
-        )}
+        <InputBar colors={colors} onSend={handleSend} loading={loading} />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -804,10 +795,10 @@ export function ChatScreen() {
 function WelcomeBanner({
   colors,
   // onLoad,
-  selectModel,
+  // selectModel,
 }: {
   colors: Colors;
-  selectModel: boolean;
+  // selectModel: boolean;
   // onLoad: (s: 'mistral' | 'llama3' | 'chatml') => void;
 }) {
   return (
@@ -880,9 +871,8 @@ function simulateResponse(input: string) {
   if (lower.includes('qué puedes')) {
     return 'Puedo ayudarte con muchas cosas:\n\n• **Programación** – debugging, explicar código, sugerir algoritmos\n• **Redacción** – emails, artículos, resúmenes\n• **Aprendizaje** – explicar conceptos complejos\n• **Análisis** – revisar textos, datos, argumentos\n• **Creatividad** – poemas, historias, ideas\n\n¡Solo dime qué necesitas!';
   }
-  return `Entiendo tu mensaje: "${
-    input.length > 60 ? input.slice(0, 60) + '…' : input
-  }".\n\nEs una pregunta interesante. Para darte la mejor respuesta posible, ¿podrías darme un poco más de contexto? Estoy aquí para ayudarte con lo que necesites.`;
+  return `Entiendo tu mensaje: "${input.length > 60 ? input.slice(0, 60) + '…' : input
+    }".\n\nEs una pregunta interesante. Para darte la mejor respuesta posible, ¿podrías darme un poco más de contexto? Estoy aquí para ayudarte con lo que necesites.`;
 }
 
 // ---------------------------------------------------------------------------

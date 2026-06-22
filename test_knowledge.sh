@@ -5,11 +5,11 @@ QUESTION=$@
 
 [ -z "$QUESTION" ] && echo missing question && exit 1
 
-MODEL=all-MiniLM-L6-v2-ggml-model-f16.gguf
+#MODEL=all-MiniLM-L6-v2-ggml-model-f16.gguf
 DATABASE=./itsrag_2026-06-17_175741.db
 
 #MODEL=embeddinggemma-300m-Q4_0.gguf
-#MODEL=android/app/src/main/assets/knowledge.current/all-MiniLM-L6-v2
+MODEL=android/app/src/main/assets/knowledge.current/all-MiniLM-L6-v2
 #DATABASE=android/app/src/main/assets/knowledge.current/corpus.sqlite
 
 MATRYOSHKA_256='.[:256] as $t | ($t | map(. * .) | add | sqrt) as $norm | $t | map(. / $norm)'
@@ -85,4 +85,5 @@ select * from final where combined_rank > :threshold limit 5;
 
 DOCS=$(echo "$QUERY"      | sqlite3 -readonly -cmd ".load $SQLITE/dist/vec0.so" $DATABASE -json)
 
+echo $DOCS | jq .
 echo $DOCS | jq '.[] | "Documento: \(.combined_rank) \(.title) \n==============\n\(.content)\n============"' -r

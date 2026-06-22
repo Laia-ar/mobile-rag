@@ -51,10 +51,8 @@ import {
 // ─── Tipos públicos ────────────────────────────────────────────────────────────
 
 export interface SimilarityResult {
-  id: number;
-  document: string;
+  title: string;
   content: string;
-  /** Similitud coseno en [0, 1]: 1 = idéntico, 0 = ortogonal */
   similarity: number;
 }
 
@@ -92,26 +90,13 @@ export interface UseSQLiteRAGReturn {
   /** true cuando la DB está abierta y lista para consultas */
   isReady: boolean;
 
-  /**
-   * Búsqueda por similitud coseno.
-   *
-   * Usa vec_distance_cosine() de sqlite-vec: el cómputo corre íntegramente
-   * en C++ sobre el hilo dedicado de op-sqlite, sin bloquear el hilo JS.
-   *
-   * @param queryEmbedding  Vector de consulta (Float32, misma dimensión que los docs)
-   * @param topK            Máximo de resultados a devolver (default: 5)
-   * @param threshold       Similitud mínima en [0,1] (default: 0.7)
-   */
   similaritySearch: (
+    question: string,
     queryEmbedding: number[],
     topK?: number,
     threshold?: number,
   ) => Promise<SimilarityResult[]>;
 
-  /**
-   * Ejecuta un SELECT arbitrario sobre la DB.
-   * Útil para consultar otras tablas que pueda tener el .sqlite.
-   */
   query: <T = Record<string, unknown>>(
     sql: string,
     params?: Scalar[],
@@ -166,8 +151,8 @@ export function useSQLiteRAG(
         if (!moved) {
           throw new Error(
             `[useSQLiteRAG] No se pudo copiar "${assetDbName}" desde los assets.\n` +
-              `Verificá que el archivo esté en assets/ y que hayas ejecutado:\n` +
-              `  npx react-native-asset@latest`,
+            `Verificá que el archivo esté en assets/ y que hayas ejecutado:\n` +
+            `  npx react-native-asset@latest`,
           );
         }
 
@@ -222,14 +207,13 @@ export function useSQLiteRAG(
 
   const similaritySearch = useCallback(
     async (
+      question: string,
       queryEmbedding: number[],
-      topK = 5,
-      threshold = 0.7,
     ): Promise<SimilarityResult[]> => {
       if (queryEmbedding.length !== embeddingDim) {
         throw new Error(
           `[useSQLiteRAG] Dimensión incorrecta: esperaba ${embeddingDim}, ` +
-            `recibió ${queryEmbedding.length}.`,
+          `recibió ${queryEmbedding.length}.`,
         );
       }
 
@@ -237,30 +221,65 @@ export function useSQLiteRAG(
 
       // Serializa el vector de consulta como Float32 BLOB.
       // op-sqlite lo pasa directamente a SQLite sin conversión adicional.
-      const queryBlob = toFloat32Buffer(queryEmbedding);
+      const embedding = toFloat32Buffer(matryoshka256(queryEmbedding));
 
-      // const sql = `
-      //   SELECT
-      //     id,
-      //     content,
-      //     metadata,
-      //     (1.0 - vec_distance_cosine(embedding, ?) / 2.0) AS similarity
-      //   FROM  ${embeddingTable}
-      //   WHERE similarity >= ?
-      //   ORDER BY similarity DESC
-      //   LIMIT ?
-      // `;
-      // const { rows } = await db.execute(sql, [queryBlob, threshold, topK]);
+      const query_str = transformQuestion(question)
+      const k = 30
+      const rrf_k = 60
+      const weight_fts = 1.0
+      const weight_vec = 1.0
+      const threshold = 0.01
+      const params = [embedding, k, query_str, k, rrf_k, weight_fts, rrf_k, weight_vec, threshold]
+      const sql = `
+        WITH vec_matches AS (
+          SELECT
+            c.id       AS chunk_id,
+            v.distance AS score
+          FROM chunks_vec AS v
+          JOIN chunks     AS c on c.rowid = v.rowid
+          WHERE
+            v.embedding MATCH (?)
+            AND v.k = ?
+            AND v.corpus_id = '4a767b76-1cba-4568-b4d9-f649fd6ccf0c'
+          ORDER BY v.distance
+        ),
+        fts_matches AS (
+          SELECT
+            chunk_id,
+            text_for_display AS text,
+            bm25(chunks_fts) AS score
+          FROM chunks_fts
+          WHERE chunks_fts MATCH (?)
+            AND corpus_id = '4a767b76-1cba-4568-b4d9-f649fd6ccf0c'
+          ORDER BY score
+          LIMIT ?
+        ),
+        final AS (
+          SELECT
+            documents.title,
+            chunks.content,
+            fts_matches.text_for_display AS text,
+            vec_matches.score            AS vec_rank,
+            fts_matches.score            AS fts_rank,
+            (
+              coalesce(1.0 / (? + fts_matches.score), 0.0) * ? +
+              coalesce(1.0 / (? + vec_matches.score), 0.0) * ?
+            ) AS similarity
+          FROM fts_matches
+          FULL OUTER JOIN vec_matches ON vec_matches.chunk_id = fts_matches.chunk_id
+          JOIN chunks ON chunks.id = coalesce(fts_matches.chunk_id, vec_matches.chunk_id)
+          JOIN documents ON documents.id = chunks.document_id
+          ORDER BY similarity DESC
+        )
+        SELECT * FROM final WHERE similarity > ? LIMIT 5;
+      `;
 
-      const sql = `SELECT chunk_id, distance, document_id, content FROM vec_chunks WHERE embedding match ? ORDER BY distance LIMIT 3;`;
-
-      const { rows } = await db.execute(sql, [queryBlob]);
+      const { rows } = await db.execute(sql, params);
 
       return (rows ?? []).map(row => ({
-        id: row.id as number,
+        title: row.title as string,
         content: row.content as string,
         similarity: row.similarity as number,
-        document: row.document as string,
       }));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -294,4 +313,18 @@ export function useSQLiteRAG(
     similaritySearch,
     query,
   };
+}
+
+function transformQuestion(str: string): string {
+  return str
+    .replaceAll(/["\*\(\)]/g, '')
+    .replaceAll(/  *$/, '"')
+    .replaceAll(/^  */, '"')
+    .replaceAll(/  */g, '" OR "')
+}
+
+function matryoshka256(emb: number[]): number[] {
+  const t = emb.slice(0, 256);
+  const norm = Math.sqrt(t.reduce((s, x) => s + x * x, 0));
+  return t.map(x => x / norm);
 }
