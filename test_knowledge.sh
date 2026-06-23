@@ -5,16 +5,20 @@ QUESTION=$@
 
 [ -z "$QUESTION" ] && echo missing question && exit 1
 
-#MODEL=all-MiniLM-L6-v2-ggml-model-f16.gguf
-DATABASE=./itsrag_2026-06-17_175741.db
+ASSETS=android/app/src/main/assets/knowledge.current
 
-#MODEL=embeddinggemma-300m-Q4_0.gguf
-MODEL=android/app/src/main/assets/knowledge.current/all-MiniLM-L6-v2
-#DATABASE=android/app/src/main/assets/knowledge.current/corpus.sqlite
+MODEL=$ASSETS/all-MiniLM-L6-v2-ggml-model-f16.gguf
+DATABASE=$ASSETS/itsrag_2026-06-17_175741.db
+
+#MODEL=$ASSETS/embeddinggemma-300m-Q4_0.gguf
+#MODEL=$ASSETS/all-MiniLM-L6-v2
+#DATABASE=$ASSETS/corpus.sqlite
 
 MATRYOSHKA_256='.[:256] as $t | ($t | map(. * .) | add | sqrt) as $norm | $t | map(. / $norm)'
 
-VECTOR=$(llama-embedding -m "$MODEL" -ngl 99 -p "$QUESTION" --embd-output-format "json" 2>/dev/null | jq -c .data[0].embedding | jq -c "$MATRYOSHKA_256")
+#GEMMA PREFIX
+QUERY_PREFIX = "task: search result | query:"
+VECTOR=$(llama-embedding -m "$MODEL" -ngl 99 -p "$QUERY_PREFIX $QUESTION" --embd-output-format "json" 2>/dev/null | jq -c .data[0].embedding | jq -c "$MATRYOSHKA_256")
 
 THRESHOLD=0.01
 

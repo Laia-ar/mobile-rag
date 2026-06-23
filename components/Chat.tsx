@@ -648,14 +648,19 @@ export function ChatScreen() {
     completionParams: { temperature: 0.7, n_predict: 512 },
   });
   const search_llm = useLlamaEngine({
-    contextParams: { n_ctx: 2048 },
+    contextParams: { n_ctx: 2048, embedding: true },
     completionParams: { temperature: 0.7, n_predict: 512 },
   });
+
+  useEffect(() => {
+    chat_llm.loadModelFromPath("all-MiniLM-L6-v2-ggml-model-f16.gguf")
+    search_llm.loadModelFromPath("embeddinggemma-300m-Q4_0.gguf")
+  },[])
 
   const rag = useSQLiteRAG({
     assetDbName: 'knowledge.current/corpus.sqlite',
     embeddingTable: 'vec_chunks',
-    embeddingDim: 384, // FIXME: from json
+    embeddingDim: 256, // FIXME: from json
   });
 
   const handleSend = useCallback(

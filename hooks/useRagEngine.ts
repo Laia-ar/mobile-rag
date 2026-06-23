@@ -47,6 +47,7 @@ import {
   DB,
   Scalar,
 } from '@op-engineering/op-sqlite';
+import RNFS from 'react-native-fs';
 
 // ─── Tipos públicos ────────────────────────────────────────────────────────────
 
@@ -143,30 +144,45 @@ export function useSQLiteRAG(
         setError(null);
         setIsReady(false);
 
-        // moveAssetsDatabase es idempotente:
-        //   · Primera vez: copia assets/<assetDbName> al directorio por defecto
-        //   · Siguientes arranques: detecta que ya existe y no hace nada
-        // Devuelve false si no pudo copiar (e.g. el archivo no está en assets).
-        const moved = await moveAssetsDatabase({ filename: assetDbName });
-        if (!moved) {
-          throw new Error(
-            `[useSQLiteRAG] No se pudo copiar "${assetDbName}" desde los assets.\n` +
-            `Verificá que el archivo esté en assets/ y que hayas ejecutado:\n` +
-            `  npx react-native-asset@latest`,
-          );
-        }
-
         if (cancelled) return;
 
-        // Abre la DB — op-sqlite usa el directorio por defecto de la plataforma
-        // (iOS Library/, Android databases/) al no pasar location.
-        const db = open({ name: assetDbName });
+        // const filename = "knowledge.current/itsrag_2026-06-17_175741.db"
+        const filename = "knowledge.current/corpus.sqlite"
+        
+        // const path = `knowledge.current/${file}`
+        // const folder = `${RNFS.TemporaryDirectoryPath}/db`
+        // const dest = `${folder}/${file}`
+        // const present = await RNFS.exists(dest);
+        // if (!present) {
+          // console.log("copy DB to ", dest)
+          // const exists = await RNFS.existsAssets(path);
+          // if (!exists) throw new Error(`Archivo no encontdrado: ${path}`);
+          // await RNFS.mkdir(folder)
+          // await RNFS.copyFileAssets(path, dest)
+        // }
+  const moved = await moveAssetsDatabase({ filename , overwrite: true});
+  if (!moved) {
+    throw new Error(`Could not move assets database: ${filename}`);
+  }
 
-        // ── Pragmas de rendimiento (workload de solo lectura) ─────────────────
-        await db.execute('PRAGMA journal_mode = WAL;');
-        await db.execute('PRAGMA synchronous  = NORMAL;');
-        await db.execute('PRAGMA temp_store   = MEMORY;');
-        await db.execute('PRAGMA mmap_size    = 268435456;'); // 256 MB mmap
+          console.log("db readyd")
+          const db = open({ name: filename });
+          // const db = open({ name: `corpus`, location: ":memory:" });
+          console.log("db readyd")
+          // db.loadExtension("vec0")
+        // await db.execute('PRAGMA journal_mode = WAL;');
+        // await db.execute('PRAGMA synchronous  = NORMAL;');
+        // await db.execute('PRAGMA temp_store   = MEMORY;');
+        // await db.execute('PRAGMA mmap_size    = 268435456;'); // 256 MB mmap
+  await db.execute('BEGIN TRANSACTION');
+          console.log("db readyd")
+        await db.loadFile(dest)
+          console.log("db readyd")
+  await db.execute('COMMIT');
+          console.log("db readyd")
+        // await db.transaction(async tx => {
+          console.log("db readyd")
+        // })
 
         if (cancelled) {
           db.close();
@@ -210,9 +226,9 @@ export function useSQLiteRAG(
       question: string,
       queryEmbedding: number[],
     ): Promise<SimilarityResult[]> => {
-      if (queryEmbedding.length !== embeddingDim) {
+      if (queryEmbedding.length < embeddingDim) {
         throw new Error(
-          `[useSQLiteRAG] Dimensión incorrecta: esperaba ${embeddingDim}, ` +
+          `[useSQLiteRAG] Dimensión incorrecta: esperaba al menos ${embeddingDim}, ` +
           `recibió ${queryEmbedding.length}.`,
         );
       }
@@ -221,7 +237,7 @@ export function useSQLiteRAG(
 
       // Serializa el vector de consulta como Float32 BLOB.
       // op-sqlite lo pasa directamente a SQLite sin conversión adicional.
-      const embedding = toFloat32Buffer(matryoshka256(queryEmbedding));
+      const embedding = toFloat32Buffer(queryEmbedding.length === embeddingDim ? queryEmbedding : matryoshka256(queryEmbedding));
 
       const query_str = transformQuestion(question)
       const k = 30
@@ -318,8 +334,8 @@ export function useSQLiteRAG(
 function transformQuestion(str: string): string {
   return str
     .replaceAll(/["\*\(\)]/g, '')
-    .replaceAll(/  *$/, '"')
-    .replaceAll(/^  */, '"')
+    .replace(/  *$/, '"')
+    .replace(/^  */, '"')
     .replaceAll(/  */g, '" OR "')
 }
 

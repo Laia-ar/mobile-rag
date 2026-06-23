@@ -24,15 +24,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 
-/**
- * Directorio donde se guardan los modelos descargados.
- * En iOS usa DocumentDirectoryPath (persiste entre reinicios).
- * En Android usa ExternalDirectoryPath o DocumentDirectoryPath.
- */
-const MODELS_DIR =
-  Platform.OS === 'ios'
-    ? `${RNFS.DocumentDirectoryPath}/models`
-    : `${RNFS.ExternalDirectoryPath ?? RNFS.DocumentDirectoryPath}/models`;
+
+// /**
+//  * Directorio donde se guardan los modelos descargados.
+//  * En iOS usa DocumentDirectoryPath (persiste entre reinicios).
+//  * En Android usa ExternalDirectoryPath o DocumentDirectoryPath.
+//  */
+// const MODELS_DIR =
+//   Platform.OS === 'ios'
+//     ? `${RNFS.DocumentDirectoryPath}/models`
+//     : `${RNFS.ExternalDirectoryPath ?? RNFS.DocumentDirectoryPath}/models`;
 
 /**
  * Parámetros del contexto llama.cpp.
@@ -192,23 +193,16 @@ export function useLlamaEngine(options: {
   const [modelName, setModelName] = useState<string>();
   const [modelPath, setModelPath] = useState<string>();
   const [error, setError] = useState('');
-  const [downloadProgress, setDownloadProgress] = useState(0);
   const [tokensPerSec, setTokensPerSec] = useState(0);
 
   const contextRef = useRef<LlamaContext>(undefined);
   const abortRef = useRef<boolean>(false);
-  const downloadJobRef = useRef<number>(null);
 
   useEffect(() => {
     return () => {
       __releaseContext();
     };
   }, []);
-
-  async function __ensureModelsDir() {
-    const exists = await RNFS.exists(MODELS_DIR);
-    if (!exists) await RNFS.mkdir(MODELS_DIR);
-  }
 
   async function __releaseContext() {
     if (contextRef.current) {
@@ -222,7 +216,7 @@ export function useLlamaEngine(options: {
   async function __initContext(path: string) {
     await __releaseContext();
 
-    const params = {
+    const params: ContextParams = {
       ...DEFAULT_CONTEXT_PARAMS,
       ...contextParams,
       model: path,
@@ -235,15 +229,26 @@ export function useLlamaEngine(options: {
     contextRef.current = await initLlama(params);
   }
 
-  const loadModelFromPath = useCallback(async (path: string) => {
+  const loadModelFromPath = useCallback(async (file: string) => {
     try {
       setStatus('loading');
       setError('');
+      // const asd = await RNFS.pathForBundle(`knowledge.current/${file}`)
+      
+      const path = `knowledge.current/${file}`
+      const folder = `${RNFS.TemporaryDirectoryPath}/models`
+      const dest = `${folder}/${file}`
+      const present = await RNFS.exists(dest);
+      if (!present) {
+        console.log("copy model to ", dest)
+        const exists = await RNFS.existsAssets(path);
+        if (!exists) throw new Error(`Archivo no encontdrado: ${path}`);
+        await RNFS.mkdir(folder)
+        await RNFS.copyFileAssets(path, dest)
+      }
 
-      const exists = await RNFS.exists(path);
-      if (!exists) throw new Error(`Archivo no encontrado: ${path}`);
-
-      await __initContext(path);
+      await __initContext(dest);
+      console.log("model loaded:", dest)
 
       const name = path.split('/').pop();
       setModelName(name);
@@ -256,68 +261,6 @@ export function useLlamaEngine(options: {
     }
   }, []);
 
-  const loadModelFromUrl = useCallback(
-    async (url: string, filename: string) => {
-      try {
-        setStatus('loading');
-        setError('');
-        setDownloadProgress(0);
-
-        await __ensureModelsDir();
-
-        const name = filename ?? url.split('/').pop()?.split('?')[0];
-        const dest = `${MODELS_DIR}/${name}`;
-
-        const alreadyExists = await RNFS.exists(dest);
-        if (!alreadyExists) {
-          const { jobId, promise } = RNFS.downloadFile({
-            fromUrl: url,
-            toFile: dest,
-            progressDivider: 1,
-            progress: res => {
-              const pct = Math.round(
-                (res.bytesWritten / res.contentLength) * 100,
-              );
-              setDownloadProgress(pct);
-            },
-            progressInterval: 500,
-          });
-
-          downloadJobRef.current = jobId;
-          const result = await promise;
-          downloadJobRef.current = null;
-
-          if (result.statusCode !== 200) {
-            throw new Error(`Descarga fallida: HTTP ${result.statusCode}`);
-          }
-        }
-
-        setDownloadProgress(100);
-        await __initContext(dest);
-
-        setModelName(name);
-        setModelPath(dest);
-        setStatus('ready');
-      } catch (err) {
-        if (toError(err).message?.includes('cancelled')) {
-          setStatus('idle');
-          return;
-        }
-        setError(toError(err).message);
-        setStatus('error');
-        throw err;
-      }
-    },
-    [],
-  );
-
-  const stopDownload = useCallback(() => {
-    if (downloadJobRef.current !== null) {
-      RNFS.stopDownload(downloadJobRef.current);
-      downloadJobRef.current = null;
-    }
-  }, []);
-
   const generate = useCallback(
     async (
       messages: ChatLine[],
@@ -325,7 +268,7 @@ export function useLlamaEngine(options: {
       template: 'llama3' | 'mistral' | 'chatml' = 'llama3',
       onPartialResponse: (p: string) => void,
     ) => {
-      if (!contextRef.current) throw new Error('Modelo no cargado');
+      if (!contextRef.current) throw new Error('Modelo no cargado: generate');
       if (status === 'generating')
         throw new Error('Ya hay una generación en curso');
 
@@ -390,7 +333,7 @@ export function useLlamaEngine(options: {
 
   const vectorize = useCallback(
     async (message: string) => {
-      if (!contextRef.current) throw new Error('Modelo no cargado');
+      if (!contextRef.current) throw new Error('Modelo no cargado: vectorize');
       if (status === 'generating')
         throw new Error('Ya hay una generación en curso');
 
@@ -400,15 +343,18 @@ export function useLlamaEngine(options: {
       const params: NativeEmbeddingParams = {};
 
       try {
+        console.log("rag start:", message)
         const result = await contextRef.current.embedding(message, params);
-
+        console.log("rag done:", result.embedding)
         setStatus('ready');
         return result.embedding;
       } catch (err) {
+        console.log(err)
         if (!abortRef.current) {
           setError(toError(err).message);
           setStatus('error');
         } else {
+          setError(toError(err).message);
           setStatus('ready');
         }
         return [];
@@ -437,54 +383,18 @@ export function useLlamaEngine(options: {
     setTokensPerSec(0);
   }, [stopGeneration]);
 
-  /**
-   * Lista los modelos .gguf descargados localmente.
-   * @returns {Promise<Array<{name: string, path: string, sizeMB: number}>>}
-   */
-  const listLocalModels = useCallback(async () => {
-    try {
-      await __ensureModelsDir();
-      const files = await RNFS.readDir(MODELS_DIR);
-      return files
-        .filter(f => f.name.endsWith('.gguf'))
-        .map(f => ({
-          name: f.name,
-          path: f.path,
-          sizeMB: Math.round(f.size / 1024 / 1024),
-        }));
-    } catch {
-      return [];
-    }
-  }, []);
-
-  /**
-   * Elimina un modelo del almacenamiento local.
-   * @param {string} path
-   */
-  const deleteLocalModel = useCallback(
-    async (path: string) => {
-      if (modelPath === path) await unloadModel();
-      await RNFS.unlink(path);
-    },
-    [modelPath, unloadModel],
-  );
 
   return {
     status,
     modelName,
     modelPath,
     error,
-    downloadProgress,
     tokensPerSec,
     vectorize,
     loadModelFromPath,
-    loadModelFromUrl,
-    stopDownload,
     generate,
     stopGeneration,
     unloadModel,
-    listLocalModels,
-    deleteLocalModel,
   };
 }
 
@@ -500,4 +410,4 @@ function toError(e: unknown): Error {
   return new Error('unkown error');
 }
 
-export { MODELS_DIR };
+// export { MODELS_DIR };
