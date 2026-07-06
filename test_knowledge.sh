@@ -17,7 +17,7 @@ DATABASE=$ASSETS/itsrag_2026-06-17_175741.db
 MATRYOSHKA_256='.[:256] as $t | ($t | map(. * .) | add | sqrt) as $norm | $t | map(. / $norm)'
 
 #GEMMA PREFIX
-QUERY_PREFIX = "task: search result | query:"
+QUERY_PREFIX="task: search result | query:"
 VECTOR=$(llama-embedding -m "$MODEL" -ngl 99 -p "$QUERY_PREFIX $QUESTION" --embd-output-format "json" 2>/dev/null | jq -c .data[0].embedding | jq -c "$MATRYOSHKA_256")
 
 THRESHOLD=0.01
@@ -59,7 +59,7 @@ with vec_matches as (
 fts_matches as (
   select
     chunk_id,
-    text_for_display,
+    text_for_display as text,
     bm25(chunks_fts) AS score
   from chunks_fts
   where chunks_fts match (:query_str)

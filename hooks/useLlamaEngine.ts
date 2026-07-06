@@ -302,6 +302,7 @@ export function useLlamaEngine(options: {
         const result = await contextRef.current.completion(params, data => {
           if (abortRef.current) return;
 
+          console.log("data", data)
           fullText += data.token;
           tokenCount++;
 
@@ -343,9 +344,7 @@ export function useLlamaEngine(options: {
       const params: NativeEmbeddingParams = {};
 
       try {
-        console.log("rag start:", message)
         const result = await contextRef.current.embedding(message, params);
-        console.log("rag done:", result.embedding)
         setStatus('ready');
         return result.embedding;
       } catch (err) {

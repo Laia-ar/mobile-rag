@@ -8,6 +8,7 @@ import React, {
 import {
   ActivityIndicator,
   Animated,
+  DeviceEventEmitter,
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
@@ -653,9 +654,9 @@ export function ChatScreen() {
   });
 
   useEffect(() => {
-    chat_llm.loadModelFromPath("all-MiniLM-L6-v2-ggml-model-f16.gguf")
-    search_llm.loadModelFromPath("embeddinggemma-300m-Q4_0.gguf")
-  },[])
+    chat_llm.loadModelFromPath('all-MiniLM-L6-v2-ggml-model-f16.gguf');
+    search_llm.loadModelFromPath('embeddinggemma-300m-Q4_0.gguf');
+  }, []);
 
   const rag = useSQLiteRAG({
     assetDbName: 'knowledge.current/corpus.sqlite',
@@ -714,7 +715,9 @@ export function ChatScreen() {
               {
                 id: aiMsgId,
                 role: 'assistant',
-                content: `${partial} docs: ${docs.length}`,
+                content: `${JSON.stringify(partial, undefined, 2)} docs: ${
+                  docs.length
+                }`,
                 timestamp: new Date(),
               },
             ];
@@ -728,6 +731,19 @@ export function ChatScreen() {
 
   const handleNewChat = useCallback(() => {
     setMessages(INITIAL_MESSAGES);
+  }, []);
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(
+      'triggerInputText',
+      data => {
+        handleSend(data.message);
+      },
+    );
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const showEmpty = messages.length === 1;
@@ -767,7 +783,7 @@ export function ChatScreen() {
             showEmpty ? (
               <WelcomeBanner
                 colors={colors}
-              // onLoad={loadModel}
+                // onLoad={loadModel}
               />
             ) : null
           }
@@ -778,13 +794,13 @@ export function ChatScreen() {
               <View style={{ height: 16 }} />
             )
           }
-          renderItem={({ item, index }) =>
+          renderItem={({ item, index }) => (
             <MessageBubble
               message={item}
               colors={colors}
               isLast={index === messages.length - 1}
             />
-          }
+          )}
           onContentSizeChange={scrollToBottom}
         />
 
@@ -799,9 +815,9 @@ export function ChatScreen() {
 // ---------------------------------------------------------------------------
 function WelcomeBanner({
   colors,
-  // onLoad,
-  // selectModel,
-}: {
+}: // onLoad,
+// selectModel,
+{
   colors: Colors;
   // selectModel: boolean;
   // onLoad: (s: 'mistral' | 'llama3' | 'chatml') => void;
@@ -876,8 +892,9 @@ function simulateResponse(input: string) {
   if (lower.includes('qué puedes')) {
     return 'Puedo ayudarte con muchas cosas:\n\n• **Programación** – debugging, explicar código, sugerir algoritmos\n• **Redacción** – emails, artículos, resúmenes\n• **Aprendizaje** – explicar conceptos complejos\n• **Análisis** – revisar textos, datos, argumentos\n• **Creatividad** – poemas, historias, ideas\n\n¡Solo dime qué necesitas!';
   }
-  return `Entiendo tu mensaje: "${input.length > 60 ? input.slice(0, 60) + '…' : input
-    }".\n\nEs una pregunta interesante. Para darte la mejor respuesta posible, ¿podrías darme un poco más de contexto? Estoy aquí para ayudarte con lo que necesites.`;
+  return `Entiendo tu mensaje: "${
+    input.length > 60 ? input.slice(0, 60) + '…' : input
+  }".\n\nEs una pregunta interesante. Para darte la mejor respuesta posible, ¿podrías darme un poco más de contexto? Estoy aquí para ayudarte con lo que necesites.`;
 }
 
 // ---------------------------------------------------------------------------

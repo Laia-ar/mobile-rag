@@ -4,7 +4,7 @@
 #npx react-native build-android --mode=release
 set -e
 # build universal apk
-npm run android -- --mode="release"
+npm run android -- --mode="prodRelease"
 
 find android/ -name "*.apk" | xargs ls -lah
 

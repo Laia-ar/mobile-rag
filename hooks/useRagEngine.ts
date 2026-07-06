@@ -146,43 +146,39 @@ export function useSQLiteRAG(
 
         if (cancelled) return;
 
-        // const filename = "knowledge.current/itsrag_2026-06-17_175741.db"
-        const filename = "knowledge.current/corpus.sqlite"
-        
-        // const path = `knowledge.current/${file}`
-        // const folder = `${RNFS.TemporaryDirectoryPath}/db`
-        // const dest = `${folder}/${file}`
-        // const present = await RNFS.exists(dest);
-        // if (!present) {
-          // console.log("copy DB to ", dest)
-          // const exists = await RNFS.existsAssets(path);
-          // if (!exists) throw new Error(`Archivo no encontdrado: ${path}`);
-          // await RNFS.mkdir(folder)
-          // await RNFS.copyFileAssets(path, dest)
-        // }
-  const moved = await moveAssetsDatabase({ filename , overwrite: true});
-  if (!moved) {
-    throw new Error(`Could not move assets database: ${filename}`);
-  }
+        const file = 'itsrag_2026-06-17_175741.db';
+        // const filename = "knowledge.current/corpus.sqlite"
 
-          console.log("db readyd")
-          const db = open({ name: filename });
-          // const db = open({ name: `corpus`, location: ":memory:" });
-          console.log("db readyd")
-          // db.loadExtension("vec0")
-        // await db.execute('PRAGMA journal_mode = WAL;');
-        // await db.execute('PRAGMA synchronous  = NORMAL;');
-        // await db.execute('PRAGMA temp_store   = MEMORY;');
+        const source = `knowledge.current/${file}`;
+        const folder = `${RNFS.TemporaryDirectoryPath}/db`;
+        const dest = `${folder}/${file}`;
+        const present = await RNFS.exists(dest);
+        if (!present) {
+          console.log('copy DB to ', dest);
+          const exists = await RNFS.existsAssets(source);
+          if (!exists) throw new Error(`Archivo no encontdrado: ${source}`);
+          await RNFS.mkdir(folder);
+          await RNFS.copyFileAssets(source, dest);
+          const copied = await RNFS.exists(dest);
+          if (!copied) throw new Error(`Archivo no fue copiado: ${source}`);
+        }
+        console.log('db before open');
+        const db = open({ name: file, location: folder });
+
+        const path = db.getDbPath();
+        console.log(`db after open ${path}`);
+        await db.execute("PRAGMA encoding     = 'UTF-8';");
+        await db.execute('PRAGMA auto_vacuum  = NONE;');
+        await db.execute('PRAGMA foreign_keys = false;');
+        await db.execute('PRAGMA fullfsync    = false;');
+        await db.execute('PRAGMA locking_mode = EXCLUSIVE;');
+        await db.execute('PRAGMA query_only   = true;');
+        await db.execute('PRAGMA journal_mode = OFF;'); // read only database
+        await db.execute('PRAGMA synchronous  = OFF;');
+        await db.execute('PRAGMA temp_store   = MEMORY;');
         // await db.execute('PRAGMA mmap_size    = 268435456;'); // 256 MB mmap
-  await db.execute('BEGIN TRANSACTION');
-          console.log("db readyd")
-        await db.loadFile(dest)
-          console.log("db readyd")
-  await db.execute('COMMIT');
-          console.log("db readyd")
-        // await db.transaction(async tx => {
-          console.log("db readyd")
-        // })
+        await db.execute('PRAGMA mmap_size    = 402653184;'); // 256+128 MB mmap
+        await db.execute('PRAGMA integrity_check;');
 
         if (cancelled) {
           db.close();
@@ -195,7 +191,14 @@ export function useSQLiteRAG(
         if (!cancelled) {
           const e = err instanceof Error ? err : new Error(String(err));
           setError(e);
-          console.error('[useSQLiteRAG] init error:', e);
+          console.error('[useSQLiteRAG] init error:');
+          console.log('name:', e.name);
+          console.log('message:', e.message);
+          console.log('stack:', e.stack);
+          console.log(
+            'full:',
+            JSON.stringify(e, Object.getOwnPropertyNames(e)),
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -229,7 +232,7 @@ export function useSQLiteRAG(
       if (queryEmbedding.length < embeddingDim) {
         throw new Error(
           `[useSQLiteRAG] Dimensión incorrecta: esperaba al menos ${embeddingDim}, ` +
-          `recibió ${queryEmbedding.length}.`,
+            `recibió ${queryEmbedding.length}.`,
         );
       }
 
@@ -237,15 +240,29 @@ export function useSQLiteRAG(
 
       // Serializa el vector de consulta como Float32 BLOB.
       // op-sqlite lo pasa directamente a SQLite sin conversión adicional.
-      const embedding = toFloat32Buffer(queryEmbedding.length === embeddingDim ? queryEmbedding : matryoshka256(queryEmbedding));
+      const embedding = toFloat32Buffer(
+        queryEmbedding.length === embeddingDim
+          ? queryEmbedding
+          : matryoshka256(queryEmbedding),
+      );
 
-      const query_str = transformQuestion(question)
-      const k = 30
-      const rrf_k = 60
-      const weight_fts = 1.0
-      const weight_vec = 1.0
-      const threshold = 0.01
-      const params = [embedding, k, query_str, k, rrf_k, weight_fts, rrf_k, weight_vec, threshold]
+      const query_str = transformQuestion(question);
+      const k = 30;
+      const rrf_k = 60;
+      const weight_fts = 1.0;
+      const weight_vec = 1.0;
+      const threshold = 0.01;
+      const params = [
+        embedding,
+        k,
+        query_str,
+        k,
+        rrf_k,
+        weight_fts,
+        rrf_k,
+        weight_vec,
+        threshold,
+      ];
       const sql = `
         WITH vec_matches AS (
           SELECT
@@ -274,9 +291,9 @@ export function useSQLiteRAG(
           SELECT
             documents.title,
             chunks.content,
-            fts_matches.text_for_display AS text,
-            vec_matches.score            AS vec_rank,
-            fts_matches.score            AS fts_rank,
+            fts_matches.text  AS text,
+            vec_matches.score AS vec_rank,
+            fts_matches.score AS fts_rank,
             (
               coalesce(1.0 / (? + fts_matches.score), 0.0) * ? +
               coalesce(1.0 / (? + vec_matches.score), 0.0) * ?
@@ -328,15 +345,16 @@ export function useSQLiteRAG(
     isReady,
     similaritySearch,
     query,
-  };
+  }; 
 }
 
 function transformQuestion(str: string): string {
-  return str
+  const sanitized = str
     .replaceAll(/["\*\(\)]/g, '')
     .replace(/  *$/, '"')
     .replace(/^  */, '"')
-    .replaceAll(/  */g, '" OR "')
+    .replaceAll(/  */g, '" OR "');
+  return `"${sanitized}"`;
 }
 
 function matryoshka256(emb: number[]): number[] {
