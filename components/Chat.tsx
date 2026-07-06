@@ -24,7 +24,7 @@ import {
   View,
 } from 'react-native';
 import { useLlamaEngine } from '../hooks/useLlamaEngine';
-import { useSQLiteRAG } from '../hooks/useRagEngine';
+import { SimilarityResult, useSQLiteRAG } from '../hooks/useRagEngine';
 
 // ---------------------------------------------------------------------------
 // Types & constants
@@ -696,15 +696,17 @@ export function ChatScreen() {
       let partial = '';
       const aiMsgId = generateId();
 
-      const vec = await search_llm.vectorize(text);
-      const docs = await rag.similaritySearch(text, vec);
-
+      console.log("vectorizing")
+      // const vec = await search_llm.vectorize(text);
+      // console.log(`vectorizing: size ${vec.length}`)
+      console.log("search")
+      // const docs = await rag.similaritySearch(text, vec);
+      // console.log(`search: total ${docs.length}`)
+      const docs: SimilarityResult[] = []
       await chat_llm.generate(
         history,
-        'Eres un asistente útil y conciso.',
-        'llama3',
+        docs,
         text => {
-          // onPartialResponse — actualizar burbuja token a token
           partial = text;
           setMessages(prev => {
             const withoutTyping = prev.filter(
@@ -715,9 +717,7 @@ export function ChatScreen() {
               {
                 id: aiMsgId,
                 role: 'assistant',
-                content: `${JSON.stringify(partial, undefined, 2)} docs: ${
-                  docs.length
-                }`,
+                content: partial,
                 timestamp: new Date(),
               },
             ];
@@ -1169,3 +1169,5 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
   },
 });
+
+
