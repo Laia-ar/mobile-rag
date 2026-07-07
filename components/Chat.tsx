@@ -654,14 +654,14 @@ export function ChatScreen() {
   });
 
   useEffect(() => {
-    chat_llm.loadModelFromPath('all-MiniLM-L6-v2-ggml-model-f16.gguf');
-    search_llm.loadModelFromPath('embeddinggemma-300m-Q4_0.gguf');
+    chat_llm.loadModelFromPath('Llama-3.2-1B-Instruct-Q4_K_M.gguf');
+    search_llm.loadModelFromPath('all-MiniLM-L6-v2-ggml-model-f16.gguf');
   }, []);
 
   const rag = useSQLiteRAG({
     assetDbName: 'knowledge.current/corpus.sqlite',
     embeddingTable: 'vec_chunks',
-    embeddingDim: 256, // FIXME: from json
+    embeddingDim: 384,
   });
 
   const handleSend = useCallback(
@@ -697,12 +697,11 @@ export function ChatScreen() {
       const aiMsgId = generateId();
 
       console.log("vectorizing")
-      // const vec = await search_llm.vectorize(text);
-      // console.log(`vectorizing: size ${vec.length}`)
+      const vec = await search_llm.vectorize(text);
+      console.log(`vectorizing: size ${vec.length}`)
       console.log("search")
-      // const docs = await rag.similaritySearch(text, vec);
-      // console.log(`search: total ${docs.length}`)
-      const docs: SimilarityResult[] = []
+      const docs = await rag.similaritySearch(text, vec);
+      console.log(`search: total ${docs.length}`)
       await chat_llm.generate(
         history,
         docs,

@@ -24,15 +24,13 @@
  *   4. Correr:  npx react-native-asset@latest
  *
  * ─── Formato esperado de la tabla de embeddings ───────────────────────────────
- *   CREATE TABLE embeddings (
- *     id        INTEGER  PRIMARY KEY,
- *     content   TEXT     NOT NULL,
- *     embedding BLOB     NOT NULL,   -- vec_f32(dim) — Float32 little-endian
- *     metadata  TEXT                 -- JSON opcional
+ *   CREATE VIRTUAL TABLE vec_chunks (
+ *     chunk_id    TEXT PRIMARY KEY,
+ *     embedding   FLOAT[dim],
+ *     document_id TEXT,
+ *     content     TEXT,
+ *     metadata    TEXT   -- JSON opcional, ej. {"document_title":"..."}
  *   );
- *
- *   -- Índice virtual de sqlite-vec para búsqueda vectorial eficiente (opcional)
- *   CREATE VIRTUAL TABLE vec_index USING vec0(embedding float[1536]);
  *
  * ─── Similitud coseno ─────────────────────────────────────────────────────────
  *   sqlite-vec expone la función SQL  vec_distance_cosine(a, b)  que corre
@@ -43,7 +41,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   open,
-  moveAssetsDatabase,
   DB,
   Scalar,
 } from '@op-engineering/op-sqlite';
@@ -71,14 +68,14 @@ export interface UseSQLiteRAGOptions {
   assetDbName?: string;
 
   /**
-   * Nombre de la tabla que contiene los embeddings.
-   * @default "embeddings"
+   * Nombre de la tabla virtual que contiene los embeddings.
+   * @default "vec_chunks"
    */
   embeddingTable?: string;
 
   /**
-   * Dimensión de los vectores de embeddings (debe coincidir con el BLOB).
-   * @default 1536
+   * Dimensión de los vectores de embeddings (debe coincidir con la tabla).
+   * @default 384
    */
   embeddingDim?: number;
 }
@@ -117,6 +114,10 @@ function toFloat32Buffer(values: number[]): ArrayBuffer {
   return buf;
 }
 
+function basename(path: string): string {
+  return path.split('/').pop() ?? path;
+}
+
 // ─── Hook principal ────────────────────────────────────────────────────────────
 
 export function useSQLiteRAG(
@@ -124,8 +125,8 @@ export function useSQLiteRAG(
 ): UseSQLiteRAGReturn {
   const {
     assetDbName = 'rag_database.sqlite',
-    embeddingTable = 'embeddings',
-    embeddingDim = 1536,
+    embeddingTable = 'vec_chunks',
+    embeddingDim = 384,
   } = options;
 
   const dbRef = useRef<DB | null>(null);
@@ -146,27 +147,25 @@ export function useSQLiteRAG(
 
         if (cancelled) return;
 
-        const file = 'itsrag_2026-06-17_175741.db';
-        // const filename = "knowledge.current/corpus.sqlite"
-
-        const source = `knowledge.current/${file}`;
+        const file = basename(assetDbName);
+        const source = assetDbName;
         const folder = `${RNFS.TemporaryDirectoryPath}/db`;
         const dest = `${folder}/${file}`;
         const present = await RNFS.exists(dest);
         if (!present) {
-          console.log('copy DB to ', dest);
+          console.log('[useSQLiteRAG] copy DB to', dest);
           const exists = await RNFS.existsAssets(source);
-          if (!exists) throw new Error(`Archivo no encontdrado: ${source}`);
+          if (!exists) throw new Error(`Archivo no encontrado: ${source}`);
           await RNFS.mkdir(folder);
           await RNFS.copyFileAssets(source, dest);
           const copied = await RNFS.exists(dest);
           if (!copied) throw new Error(`Archivo no fue copiado: ${source}`);
         }
-        console.log('db before open');
+        console.log('[useSQLiteRAG] open', dest);
         const db = open({ name: file, location: folder });
 
         const path = db.getDbPath();
-        console.log(`db after open ${path}`);
+        console.log('[useSQLiteRAG] db path', path);
         await db.execute("PRAGMA encoding     = 'UTF-8';");
         await db.execute('PRAGMA auto_vacuum  = NONE;');
         await db.execute('PRAGMA foreign_keys = false;');
@@ -176,8 +175,7 @@ export function useSQLiteRAG(
         await db.execute('PRAGMA journal_mode = OFF;'); // read only database
         await db.execute('PRAGMA synchronous  = OFF;');
         await db.execute('PRAGMA temp_store   = MEMORY;');
-        // await db.execute('PRAGMA mmap_size    = 268435456;'); // 256 MB mmap
-        await db.execute('PRAGMA mmap_size    = 402653184;'); // 256+128 MB mmap
+        await db.execute('PRAGMA mmap_size    = 402653184;'); // 384 MB mmap
         await db.execute('PRAGMA integrity_check;');
 
         if (cancelled) {
@@ -228,10 +226,12 @@ export function useSQLiteRAG(
     async (
       question: string,
       queryEmbedding: number[],
+      topK = 5,
+      threshold = 0.0,
     ): Promise<SimilarityResult[]> => {
-      if (queryEmbedding.length < embeddingDim) {
+      if (queryEmbedding.length !== embeddingDim) {
         throw new Error(
-          `[useSQLiteRAG] Dimensión incorrecta: esperaba al menos ${embeddingDim}, ` +
+          `[useSQLiteRAG] Dimensión incorrecta: esperaba ${embeddingDim}, ` +
             `recibió ${queryEmbedding.length}.`,
         );
       }
@@ -239,81 +239,40 @@ export function useSQLiteRAG(
       const db = requireDb();
 
       // Serializa el vector de consulta como Float32 BLOB.
-      // op-sqlite lo pasa directamente a SQLite sin conversión adicional.
-      const embedding = toFloat32Buffer(
-        queryEmbedding.length === embeddingDim
-          ? queryEmbedding
-          : matryoshka256(queryEmbedding),
-      );
+      const embedding = toFloat32Buffer(queryEmbedding);
 
-      const query_str = transformQuestion(question);
-      const k = 30;
-      const rrf_k = 60;
-      const weight_fts = 1.0;
-      const weight_vec = 1.0;
-      const threshold = 0.01;
-      const params = [
-        embedding,
-        k,
-        query_str,
-        k,
-        rrf_k,
-        weight_fts,
-        rrf_k,
-        weight_vec,
-        threshold,
-      ];
+      // sqlite-vec: MATCH busca los k vecinos más cercanos y devuelve distance.
       const sql = `
-        WITH vec_matches AS (
-          SELECT
-            c.id       AS chunk_id,
-            v.distance AS score
-          FROM chunks_vec AS v
-          JOIN chunks     AS c on c.rowid = v.rowid
-          WHERE
-            v.embedding MATCH (?)
-            AND v.k = ?
-            AND v.corpus_id = '4a767b76-1cba-4568-b4d9-f649fd6ccf0c'
-          ORDER BY v.distance
-        ),
-        fts_matches AS (
-          SELECT
-            chunk_id,
-            text_for_display AS text,
-            bm25(chunks_fts) AS score
-          FROM chunks_fts
-          WHERE chunks_fts MATCH (?)
-            AND corpus_id = '4a767b76-1cba-4568-b4d9-f649fd6ccf0c'
-          ORDER BY score
-          LIMIT ?
-        ),
-        final AS (
-          SELECT
-            documents.title,
-            chunks.content,
-            fts_matches.text  AS text,
-            vec_matches.score AS vec_rank,
-            fts_matches.score AS fts_rank,
-            (
-              coalesce(1.0 / (? + fts_matches.score), 0.0) * ? +
-              coalesce(1.0 / (? + vec_matches.score), 0.0) * ?
-            ) AS similarity
-          FROM fts_matches
-          FULL OUTER JOIN vec_matches ON vec_matches.chunk_id = fts_matches.chunk_id
-          JOIN chunks ON chunks.id = coalesce(fts_matches.chunk_id, vec_matches.chunk_id)
-          JOIN documents ON documents.id = chunks.document_id
-          ORDER BY similarity DESC
-        )
-        SELECT * FROM final WHERE similarity > ? LIMIT 5;
+        SELECT
+          chunk_id,
+          document_id,
+          content,
+          metadata,
+          distance
+        FROM ${embeddingTable}
+        WHERE embedding MATCH (?)
+          AND k = ?
+        ORDER BY distance
       `;
 
-      const { rows } = await db.execute(sql, params);
+      const { rows } = await db.execute(sql, [embedding, topK]);
 
-      return (rows ?? []).map(row => ({
-        title: row.title as string,
-        content: row.content as string,
-        similarity: row.similarity as number,
-      }));
+      return (rows ?? [])
+        .map(row => {
+          let title = 'Fuente desconocida';
+          try {
+            const meta = JSON.parse((row.metadata as string) || '{}');
+            title = meta.document_title || row.document_id || title;
+          } catch {
+            title = (row.document_id as string) || title;
+          }
+          return {
+            title,
+            content: (row.content as string) || '',
+            similarity: 1 - (row.distance as number),
+          };
+        })
+        .filter(r => r.similarity >= threshold);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [embeddingTable, embeddingDim],
@@ -345,20 +304,5 @@ export function useSQLiteRAG(
     isReady,
     similaritySearch,
     query,
-  }; 
-}
-
-function transformQuestion(str: string): string {
-  const sanitized = str
-    .replaceAll(/["\*\(\)]/g, '')
-    .replace(/  *$/, '"')
-    .replace(/^  */, '"')
-    .replaceAll(/  */g, '" OR "');
-  return `"${sanitized}"`;
-}
-
-function matryoshka256(emb: number[]): number[] {
-  const t = emb.slice(0, 256);
-  const norm = Math.sqrt(t.reduce((s, x) => s + x * x, 0));
-  return t.map(x => x / norm);
+  };
 }

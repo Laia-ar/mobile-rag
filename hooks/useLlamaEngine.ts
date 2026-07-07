@@ -247,14 +247,12 @@ export function useLlamaEngine(options: {
 
       let system_prompt = buildSystemPrompt(docs);
 
+      const prompt = formatLlama3Prompt(messages, system_prompt);
+
       const params: CompletionParams = {
         ...DEFAULT_COMPLETION_PARAMS,
         ...completionParams,
-        // prompt:"que onda",
-        messages: [{
-          role: "system",
-          content: system_prompt,
-        }, ...messages]
+        prompt,
       };
 
       let fullText = '';
@@ -307,12 +305,8 @@ export function useLlamaEngine(options: {
 
       const params: NativeEmbeddingParams = {};
 
-      const GEMMA_PREFIX = 'task: search result | query:';
       try {
-        const result = await contextRef.current.embedding(
-          `${GEMMA_PREFIX} ${message}`,
-          params,
-        );
+        const result = await contextRef.current.embedding(message, params);
         setStatus('ready');
         return result.embedding;
       } catch (err) {
