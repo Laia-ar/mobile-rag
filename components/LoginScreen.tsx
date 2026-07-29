@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChatbotScreen } from './ChatbotScreen';
 import { ConsultationScreen, MainSection } from './ConsultationScreen';
+import { RecommendationsScreen } from './RecommendationsScreen';
 import { TermsAndConditionsScreen } from './TermsAndConditionsScreen';
 import { WelcomeScreen } from './WelcomeScreen';
 
@@ -32,7 +33,9 @@ export function LoginScreen({ onLogin, onRequestAccess }: LoginScreenProps) {
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false);
   const [savedSourceIds, setSavedSourceIds] = useState<string[]>([]);
+  const [savedGuideIds, setSavedGuideIds] = useState<string[]>([]);
   const [activeMainSection, setActiveMainSection] =
     useState<MainSection>('consultation');
   const normalizedAccessId = accessId.trim();
@@ -65,11 +68,20 @@ export function LoginScreen({ onLogin, onRequestAccess }: LoginScreenProps) {
 
   const handleOpenProfile = () => {
     setIsChatbotOpen(false);
+    setIsRecommendationsOpen(false);
     setActiveMainSection('profile');
   };
 
   if (hasAcceptedTerms) {
     if (hasCompletedOnboarding) {
+      if (isRecommendationsOpen) {
+        return (
+          <RecommendationsScreen
+            onBack={() => setIsRecommendationsOpen(false)}
+          />
+        );
+      }
+
       if (isChatbotOpen) {
         return (
           <ChatbotScreen
@@ -85,7 +97,10 @@ export function LoginScreen({ onLogin, onRequestAccess }: LoginScreenProps) {
         <ConsultationScreen
           activeSection={activeMainSection}
           onOpenChatbot={() => setIsChatbotOpen(true)}
+          onOpenRecommendations={() => setIsRecommendationsOpen(true)}
+          onSavedGuideIdsChange={setSavedGuideIds}
           onSelectSection={setActiveMainSection}
+          savedGuideIds={savedGuideIds}
         />
       );
     }

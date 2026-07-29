@@ -9,6 +9,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { GuideMockDocument } from '../data/guidesMock';
+import { GuidesScreen } from './GuidesScreen';
 
 export type MainSection = 'guides' | 'consultation' | 'profile';
 
@@ -19,6 +21,9 @@ type ConsultationScreenProps = {
   onOpenRecommendations?: () => void;
   onOpenInteractionGuide?: () => void;
   onOpenHelp?: () => void;
+  savedGuideIds?: string[];
+  onSavedGuideIdsChange?: (guideIds: string[]) => void;
+  onOpenGuide?: (guide: GuideMockDocument) => void;
 };
 
 type NavigationItem = {
@@ -72,6 +77,9 @@ export function ConsultationScreen({
   onOpenRecommendations,
   onOpenInteractionGuide,
   onOpenHelp,
+  savedGuideIds = [],
+  onSavedGuideIdsChange,
+  onOpenGuide,
 }: ConsultationScreenProps) {
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -131,23 +139,34 @@ export function ConsultationScreen({
             </Pressable>
           </View>
         </View>
+      ) : activeSection === 'guides' ? (
+        <GuidesScreen
+          onOpenGuide={onOpenGuide}
+          onOpenProfile={() => onSelectSection?.('profile')}
+          onSavedGuideIdsChange={guideIds =>
+            onSavedGuideIdsChange?.(guideIds)
+          }
+          savedGuideIds={savedGuideIds}
+        />
       ) : (
         <View style={styles.content}>
           <Text style={styles.title}>{sectionTitles[activeSection]}</Text>
         </View>
       )}
 
-      <Pressable
-        accessibilityRole="link"
-        onPress={onOpenHelp}
-        hitSlop={12}
-        style={({ pressed }) => [
-          styles.helpButton,
-          pressed && onOpenHelp ? styles.pressed : null,
-        ]}
-      >
-        <Text style={styles.helpText}>Ayuda</Text>
-      </Pressable>
+      {activeSection === 'consultation' ? (
+        <Pressable
+          accessibilityRole="link"
+          onPress={onOpenHelp}
+          hitSlop={12}
+          style={({ pressed }) => [
+            styles.helpButton,
+            pressed && onOpenHelp ? styles.pressed : null,
+          ]}
+        >
+          <Text style={styles.helpText}>Ayuda</Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.bottomNavigation}>
         {navigationItems.map(item => {
