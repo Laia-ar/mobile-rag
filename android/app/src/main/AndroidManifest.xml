@@ -10,8 +10,7 @@
     android:allowBackup="false"
     android:theme="@style/AppTheme"
     android:usesCleartextTraffic="${usesCleartextTraffic}"
-    android:supportsRtl="true"
-    android:debuggable="true">
+    android:supportsRtl="true">
     <activity
       android:name=".MainActivity"
       android:label="@string/app_name"
@@ -24,8 +23,8 @@
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
     </activity>
-    <receiver
-      android:name="gnu.app.TestingEventReceiver"
-      android:exported="true" />
+    <activity
+      android:name=".PdfViewerActivity"
+      android:exported="false" />
   </application>
 </manifest>

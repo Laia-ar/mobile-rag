@@ -21,7 +21,6 @@ import {
   NativeEmbeddingParams,
 } from 'llama.rn';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { SimilarityResult } from './useRagEngine';
 
@@ -98,7 +97,7 @@ export function formatLlama3Prompt(
   return prompt;
 }
 
-type ChatLine = { role: 'system' | 'user' | 'assistant'; content: string };
+export type ChatLine = { role: 'system' | 'user' | 'assistant'; content: string };
 
 function fuentes(docs: SimilarityResult[]): string {
   return `<fuentes>
@@ -120,17 +119,16 @@ function contextRecuperado(docs: SimilarityResult[]): string {
     .join('\n')}`;
 }
 export function buildSystemPrompt(
-  // messages: Array<ChatLine>,
   docs: SimilarityResult[],
+  basePrompt?: string,
 ): string {
   return [
-    '\n\n',
-    // PROMT_CORE,
-    // fuentes(docs),
-    // prompt_acronyms,
-    // prompt_glossary,
+    ...(basePrompt
+      ? [basePrompt]
+      : [PROMT_CORE, prompt_acronyms, prompt_glossary]),
+    fuentes(docs),
     contextRecuperado(docs),
-  ].join();
+  ].join('\n\n');
 }
 
 
@@ -140,7 +138,7 @@ export function buildSystemPrompt(
  * Uso:
  *   const {
  *     status, modelName, error,
- *     loadModelFromPath, loadModelFromUrl,
+ *     loadModel,
  *     generate, stopGeneration,
  *     unloadModel,
  *   } = useLlamaEngine();
@@ -169,23 +167,17 @@ export function useLlamaEngine(options: {
   const contextRef = useRef<LlamaContext>(undefined);
   const abortRef = useRef<boolean>(false);
 
-  useEffect(() => {
-    return () => {
-      __releaseContext();
-    };
-  }, []);
-
-  async function __releaseContext() {
+  const releaseContext = useCallback(async () => {
     if (contextRef.current) {
       try {
         await contextRef.current.release();
-      } catch (_) {}
+      } catch {}
       contextRef.current = undefined;
     }
-  }
+  }, []);
 
-  async function __initContext(path: string) {
-    await __releaseContext();
+  const initContext = useCallback(async (path: string) => {
+    await releaseContext();
 
     const params: ContextParams = {
       ...DEFAULT_CONTEXT_PARAMS,
@@ -198,31 +190,23 @@ export function useLlamaEngine(options: {
     }
 
     contextRef.current = await initLlama(params);
-  }
+  }, [contextParams, releaseContext]);
 
-  const loadModelFromPath = useCallback(async (file: string) => {
+  useEffect(() => {
+    return () => {
+      releaseContext().catch(() => undefined);
+    };
+  }, [releaseContext]);
+
+  const loadModel = useCallback(async (path: string) => {
     try {
       setStatus('loading');
       setError('');
-      // const asd = await RNFS.pathForBundle(`knowledge.current/${file}`)
-
-      const path = `knowledge.current/${file}`;
-      const folder = `${RNFS.TemporaryDirectoryPath}/models`;
-      const dest = `${folder}/${file}`;
-      const present = await RNFS.exists(dest);
-      if (!present) {
-        console.log('copy model to ', dest);
-        const exists = await RNFS.existsAssets(path);
-        if (!exists) throw new Error(`Archivo no encontdrado: ${path}`);
-        await RNFS.mkdir(folder);
-        await RNFS.copyFileAssets(path, dest);
+      if (!(await RNFS.exists(path))) {
+        throw new Error(`Modelo no encontrado: ${path}`);
       }
-
-      await __initContext(dest);
-      console.log('model loaded:', dest);
-
-      const name = path.split('/').pop();
-      setModelName(name);
+      await initContext(path);
+      setModelName(path.split('/').pop());
       setModelPath(path);
       setStatus('ready');
     } catch (err: unknown) {
@@ -230,13 +214,14 @@ export function useLlamaEngine(options: {
       setStatus('error');
       throw err;
     }
-  }, []);
+  }, [initContext]);
 
   const generate = useCallback(
     async (
       messages: ChatLine[],
       docs: SimilarityResult[],
       onPartialResponse: (p: string) => void,
+      systemPrompt?: string,
     ) => {
       if (!contextRef.current) throw new Error('Modelo no cargado: generate');
       if (status === 'generating')
@@ -245,7 +230,7 @@ export function useLlamaEngine(options: {
       setStatus('generating');
       abortRef.current = false;
 
-      let system_prompt = buildSystemPrompt(docs);
+      const system_prompt = buildSystemPrompt(docs, systemPrompt);
 
       const params: CompletionParams = {
         ...DEFAULT_COMPLETION_PARAMS,
@@ -297,7 +282,7 @@ export function useLlamaEngine(options: {
   );
 
   const vectorize = useCallback(
-    async (message: string) => {
+    async (message: string, queryPrefix = 'task: search result | query:') => {
       if (!contextRef.current) throw new Error('Modelo no cargado: vectorize');
       if (status === 'generating')
         throw new Error('Ya hay una generación en curso');
@@ -307,10 +292,9 @@ export function useLlamaEngine(options: {
 
       const params: NativeEmbeddingParams = {};
 
-      const GEMMA_PREFIX = 'task: search result | query:';
       try {
         const result = await contextRef.current.embedding(
-          `${GEMMA_PREFIX} ${message}`,
+          `${queryPrefix} ${message}`.trim(),
           params,
         );
         setStatus('ready');
@@ -327,7 +311,7 @@ export function useLlamaEngine(options: {
         return [];
       }
     },
-    [status, completionParams],
+    [status],
   );
 
   /**
@@ -343,12 +327,12 @@ export function useLlamaEngine(options: {
    */
   const unloadModel = useCallback(async () => {
     stopGeneration();
-    await __releaseContext();
+    await releaseContext();
     setStatus('idle');
     setModelName(undefined);
     setModelPath(undefined);
     setTokensPerSec(0);
-  }, [stopGeneration]);
+  }, [releaseContext, stopGeneration]);
 
   return {
     status,
@@ -357,7 +341,7 @@ export function useLlamaEngine(options: {
     error,
     tokensPerSec,
     vectorize,
-    loadModelFromPath,
+    loadModel,
     generate,
     stopGeneration,
     unloadModel,
