@@ -155,6 +155,7 @@ dependencies {
 def offlineKnowledgeDir = file("src/main/assets/knowledge.current")
 
 tasks.register("validateOfflineKnowledge") {
+    dependsOn("syncRNLlamaHtpAssets")
     group = "verification"
     description = "Valida el paquete offline antes de construir prodRelease."
     inputs.dir(offlineKnowledgeDir)

@@ -205,7 +205,7 @@ function documentFromRow(
 export function useSQLiteRAG(
   options: UseSQLiteRAGOptions = {},
 ): UseSQLiteRAGReturn {
-  const {country, defaultTopK = 5} = options;
+  const {country, defaultTopK = 1} = options;
   const dbRef = useRef<DB | null>(null);
   const packageRef = useRef<InstalledKnowledgePackage | null>(null);
   const documentColumnsRef = useRef<Set<string>>(new Set());

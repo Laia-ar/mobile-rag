@@ -300,6 +300,7 @@ export function useLlamaEngine(options: {
         setStatus('ready');
         return result.embedding;
       } catch (err) {
+        console.error('LLM COMPLETION ERROR:', err);
         console.log(err);
         if (!abortRef.current) {
           setError(toError(err).message);
