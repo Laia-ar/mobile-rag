@@ -1,61 +1,18 @@
-/**
- * useSQLiteRAG
- *
- * Hook para React Native que inicializa una base de datos SQLite usando
- * @op-engineering/op-sqlite, carga una DB pre-construida desde los assets
- * del bundle en el primer arranque, y expone búsqueda por similitud coseno
- * ejecutada enteramente en SQLite via sqlite-vec (C++ nativo, sin cómputo en JS).
- *
- * ─── Dependencias ─────────────────────────────────────────────────────────────
- *   npm install @op-engineering/op-sqlite
- *   npx react-native-asset@latest   ← vincula los assets
- *   npx pod-install                 ← iOS
- *
- * ─── Habilitar sqlite-vec en package.json ─────────────────────────────────────
- *   "op-sqlite": {
- *     "sqliteVec": true
- *   }
- *
- * ─── Ubicación del archivo bundleado ──────────────────────────────────────────
- *   1. Crear la carpeta  assets/  en la raíz del proyecto
- *   2. Poner el archivo  assets/<assetDbName>  ahí
- *   3. En react-native.config.js:
- *        module.exports = { assets: ['./assets/'] };
- *   4. Correr:  npx react-native-asset@latest
- *
- * ─── Formato esperado de la tabla de embeddings ───────────────────────────────
- *   CREATE TABLE embeddings (
- *     id        INTEGER  PRIMARY KEY,
- *     content   TEXT     NOT NULL,
- *     embedding BLOB     NOT NULL,   -- vec_f32(dim) — Float32 little-endian
- *     metadata  TEXT                 -- JSON opcional
- *   );
- *
- *   -- Índice virtual de sqlite-vec para búsqueda vectorial eficiente (opcional)
- *   CREATE VIRTUAL TABLE vec_index USING vec0(embedding float[1536]);
- *
- * ─── Similitud coseno ─────────────────────────────────────────────────────────
- *   sqlite-vec expone la función SQL  vec_distance_cosine(a, b)  que corre
- *   completamente en C++ en el hilo nativo de op-sqlite. No hay cómputo
- *   vectorial en el hilo de JavaScript.
- */
-
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {DB, Scalar, open} from '@op-engineering/op-sqlite';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {
-  open,
-  moveAssetsDatabase,
-  DB,
-  Scalar,
-} from '@op-engineering/op-sqlite';
-import RNFS from 'react-native-fs';
+  KnowledgePackageMissingError,
+  installBundledKnowledgePackage,
+} from '../services/knowledge/packageService';
+import {
+  CountryCode,
+  InstalledKnowledgePackage,
+  KnowledgeDocument,
+  KnowledgePackageStatus,
+  SourceReference,
+} from '../types/knowledge';
 
-// ─── Tipos públicos ────────────────────────────────────────────────────────────
-
-export interface SimilarityResult {
-  title: string;
-  content: string;
-  similarity: number;
-}
+export type SimilarityResult = SourceReference;
 
 export interface QueryResult<T = Record<string, unknown>> {
   rows: T[];
@@ -64,269 +21,422 @@ export interface QueryResult<T = Record<string, unknown>> {
 }
 
 export interface UseSQLiteRAGOptions {
-  /**
-   * Nombre del archivo .sqlite en la carpeta assets/ del proyecto.
-   * @default "rag_database.sqlite"
-   */
+  country?: CountryCode;
+  defaultTopK?: number;
+  /** @deprecated El nombre de la base ahora se obtiene de manifest.json. */
   assetDbName?: string;
-
-  /**
-   * Nombre de la tabla que contiene los embeddings.
-   * @default "embeddings"
-   */
-  embeddingTable?: string;
-
-  /**
-   * Dimensión de los vectores de embeddings (debe coincidir con el BLOB).
-   * @default 1536
-   */
+  /** @deprecated La dimensión ahora se obtiene de manifest.json. */
   embeddingDim?: number;
+  /** @deprecated La tabla forma parte del contrato del paquete offline. */
+  embeddingTable?: string;
 }
 
 export interface UseSQLiteRAGReturn {
-  /** true mientras la DB se está inicializando */
   loading: boolean;
-  /** Error de inicialización o de la última operación, null si no hay error */
   error: Error | null;
-  /** true cuando la DB está abierta y lista para consultas */
   isReady: boolean;
-
+  status: KnowledgePackageStatus;
+  installedPackage: InstalledKnowledgePackage | null;
+  documents: KnowledgeDocument[];
   similaritySearch: (
     question: string,
     queryEmbedding: number[],
     topK?: number,
     threshold?: number,
   ) => Promise<SimilarityResult[]>;
-
   query: <T = Record<string, unknown>>(
     sql: string,
     params?: Scalar[],
   ) => Promise<QueryResult<T>>;
+  refresh: () => void;
 }
 
-// ─── Helper: number[] → Float32 ArrayBuffer ───────────────────────────────────
+type DatabaseRow = Record<string, Scalar>;
 
-/**
- * Serializa un array de floats JS a ArrayBuffer en formato Float32 little-endian.
- * op-sqlite acepta ArrayBuffer / TypedArray directamente como parámetro BLOB.
- */
+function fileName(path: string): string {
+  const normalized = path.replace(/\\/g, '/');
+  return normalized.slice(normalized.lastIndexOf('/') + 1);
+}
+
+function directoryName(path: string): string {
+  const normalized = path.replace(/\\/g, '/');
+  return normalized.slice(0, normalized.lastIndexOf('/'));
+}
+
 function toFloat32Buffer(values: number[]): ArrayBuffer {
-  const buf = new ArrayBuffer(values.length * 4);
-  const view = new DataView(buf);
-  values.forEach((v, i) => view.setFloat32(i * 4, v, /* littleEndian= */ true));
-  return buf;
+  const output = new Float32Array(values.length);
+  output.set(values);
+  return output.buffer;
 }
 
-// ─── Hook principal ────────────────────────────────────────────────────────────
+function truncateAndNormalize(values: number[], dimensions: number): number[] {
+  if (values.length < dimensions) {
+    throw new Error(
+      `El embedding tiene ${values.length} dimensiones y la base requiere ${dimensions}.`,
+    );
+  }
+  const truncated = values.slice(0, dimensions);
+  const norm = Math.sqrt(truncated.reduce((sum, value) => sum + value * value, 0));
+  if (!Number.isFinite(norm) || norm === 0) {
+    throw new Error('El modelo devolvió un embedding inválido.');
+  }
+  return truncated.map(value => value / norm);
+}
+
+function transformQuestion(question: string): string {
+  const words = question
+    .normalize('NFKC')
+    .replace(/["*()']/g, ' ')
+    .split(/\s+/)
+    .map(word => word.trim())
+    .filter(word => word.length > 1)
+    .slice(0, 24);
+  return words.length > 0
+    ? words.map(word => `"${word.replace(/"/g, '')}"`).join(' OR ')
+    : '"consulta"';
+}
+
+function countryFromDatabase(value: unknown): CountryCode | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'ar' || normalized === 'argentina') return 'AR';
+  if (normalized === 'bo' || normalized === 'bolivia') return 'BO';
+  return undefined;
+}
+
+function corpusIdForCountry(
+  knowledgePackage: InstalledKnowledgePackage,
+  country?: CountryCode,
+): string {
+  const selectedCountry = country ?? knowledgePackage.manifest.countries[0];
+  const corpusId = knowledgePackage.manifest.corpus.countryIds[selectedCountry];
+  if (!corpusId) {
+    throw new Error(`El paquete offline no declara un corpus para ${selectedCountry}.`);
+  }
+  return corpusId;
+}
+
+function stringValue(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function numberValue(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function parseSectionPath(value: unknown): string[] | undefined {
+  if (typeof value !== 'string' || value === '') return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter(item => typeof item === 'string')
+      : undefined;
+  } catch {
+    return value.split('>').map(item => item.trim()).filter(Boolean);
+  }
+}
+
+function safeDocumentPath(
+  rawPath: unknown,
+  documentId: string,
+  documentsDirectory: string,
+): string {
+  const normalized = stringValue(rawPath).replace(/\\/g, '/');
+  if (
+    normalized &&
+    !normalized.startsWith('/') &&
+    !/^[a-zA-Z]:\//.test(normalized) &&
+    !normalized.split('/').includes('..')
+  ) {
+    return normalized.includes('/')
+      ? normalized
+      : `${documentsDirectory}/${normalized}`;
+  }
+  const originalName = normalized.slice(normalized.lastIndexOf('/') + 1);
+  return `${documentsDirectory}/${originalName || `${documentId}.pdf`}`;
+}
+
+function columnExpression(
+  columns: Set<string>,
+  tableAlias: string,
+  column: string,
+  fallbackSql: string,
+): string {
+  return columns.has(column)
+    ? `${tableAlias}.${column} AS ${column}`
+    : `${fallbackSql} AS ${column}`;
+}
+
+async function tableColumns(db: DB, table: string): Promise<Set<string>> {
+  const result = await db.execute(`PRAGMA table_info(${table});`);
+  return new Set(
+    (result.rows ?? [])
+      .map(row => row.name)
+      .filter((name): name is string => typeof name === 'string'),
+  );
+}
+
+function documentFromRow(
+  row: DatabaseRow,
+  knowledgePackage: InstalledKnowledgePackage,
+  selectedCountry?: CountryCode,
+): KnowledgeDocument {
+  const id = stringValue(row.id);
+  const relativePath = safeDocumentPath(
+    row.pdf_path ?? row.file_path,
+    id,
+    knowledgePackage.manifest.corpus.documentsDirectory,
+  );
+  return {
+    id,
+    corpusId: stringValue(row.corpus_id),
+    title: stringValue(row.title, 'Documento sin título'),
+    description: stringValue(row.description),
+    institution: stringValue(row.institution),
+    country: selectedCountry ?? countryFromDatabase(row.country),
+    publishedAt: stringValue(row.doc_date) || undefined,
+    fileSize: numberValue(row.file_size),
+    pageCount: numberValue(row.page_count),
+    relativePath,
+    absolutePath: knowledgePackage.resolvePath(relativePath),
+  };
+}
 
 export function useSQLiteRAG(
   options: UseSQLiteRAGOptions = {},
 ): UseSQLiteRAGReturn {
-  const {
-    assetDbName = 'rag_database.sqlite',
-    embeddingTable = 'embeddings',
-    embeddingDim = 1536,
-  } = options;
-
+  const {country, defaultTopK = 1} = options;
   const dbRef = useRef<DB | null>(null);
-  const [isReady, setIsReady] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const packageRef = useRef<InstalledKnowledgePackage | null>(null);
+  const documentColumnsRef = useRef<Set<string>>(new Set());
+  const chunkColumnsRef = useRef<Set<string>>(new Set());
+  const [status, setStatus] = useState<KnowledgePackageStatus>('loading');
   const [error, setError] = useState<Error | null>(null);
-
-  // ── Inicialización ──────────────────────────────────────────────────────────
+  const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [installedPackage, setInstalledPackage] =
+    useState<InstalledKnowledgePackage | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
+    const initialize = async () => {
+      setStatus('loading');
+      setError(null);
+      setDocuments([]);
       try {
-        setLoading(true);
-        setError(null);
-        setIsReady(false);
-
-        if (cancelled) return;
-
-        const file = 'itsrag_2026-06-17_175741.db';
-        // const filename = "knowledge.current/corpus.sqlite"
-
-        const source = `knowledge.current/${file}`;
-        const folder = `${RNFS.TemporaryDirectoryPath}/db`;
-        const dest = `${folder}/${file}`;
-        const present = await RNFS.exists(dest);
-        if (!present) {
-          console.log('copy DB to ', dest);
-          const exists = await RNFS.existsAssets(source);
-          if (!exists) throw new Error(`Archivo no encontdrado: ${source}`);
-          await RNFS.mkdir(folder);
-          await RNFS.copyFileAssets(source, dest);
-          const copied = await RNFS.exists(dest);
-          if (!copied) throw new Error(`Archivo no fue copiado: ${source}`);
-        }
-        console.log('db before open');
-        const db = open({ name: file, location: folder });
-
-        const path = db.getDbPath();
-        console.log(`db after open ${path}`);
-        await db.execute("PRAGMA encoding     = 'UTF-8';");
-        await db.execute('PRAGMA auto_vacuum  = NONE;');
-        await db.execute('PRAGMA foreign_keys = false;');
-        await db.execute('PRAGMA fullfsync    = false;');
-        await db.execute('PRAGMA locking_mode = EXCLUSIVE;');
-        await db.execute('PRAGMA query_only   = true;');
-        await db.execute('PRAGMA journal_mode = OFF;'); // read only database
-        await db.execute('PRAGMA synchronous  = OFF;');
-        await db.execute('PRAGMA temp_store   = MEMORY;');
-        // await db.execute('PRAGMA mmap_size    = 268435456;'); // 256 MB mmap
-        await db.execute('PRAGMA mmap_size    = 402653184;'); // 256+128 MB mmap
-        await db.execute('PRAGMA integrity_check;');
-
-        if (cancelled) {
+        const knowledgePackage = await installBundledKnowledgePackage();
+        const corpusId = corpusIdForCountry(knowledgePackage, country);
+        const databasePath = knowledgePackage.resolvePath(
+          knowledgePackage.manifest.corpus.databasePath,
+        );
+        const db = open({
+          name: fileName(databasePath),
+          location: directoryName(databasePath),
+        });
+        await db.execute('PRAGMA query_only = true;');
+        await db.execute('PRAGMA foreign_keys = true;');
+        await db.execute('PRAGMA temp_store = MEMORY;');
+        const integrityResult = await db.execute('PRAGMA integrity_check;');
+        const integrityValue = integrityResult.rows?.[0]
+          ? Object.values(integrityResult.rows[0])[0]
+          : undefined;
+        if (integrityValue !== 'ok') {
           db.close();
-          return;
+          throw new Error('La base offline no superó PRAGMA integrity_check.');
         }
 
-        dbRef.current = db;
-        setIsReady(true);
-      } catch (err) {
-        if (!cancelled) {
-          const e = err instanceof Error ? err : new Error(String(err));
-          setError(e);
-          console.error('[useSQLiteRAG] init error:');
-          console.log('name:', e.name);
-          console.log('message:', e.message);
-          console.log('stack:', e.stack);
-          console.log(
-            'full:',
-            JSON.stringify(e, Object.getOwnPropertyNames(e)),
+        const tablesResult = await db.execute(
+          "SELECT name FROM sqlite_master WHERE type IN ('table', 'view');",
+        );
+        const availableTables = new Set(
+          (tablesResult.rows ?? [])
+            .map(row => row.name)
+            .filter((name): name is string => typeof name === 'string'),
+        );
+        const missingTables = ['documents', 'chunks', 'chunks_vec', 'chunks_fts']
+          .filter(table => !availableTables.has(table));
+        if (missingTables.length > 0) {
+          db.close();
+          throw new Error(
+            `La base offline no cumple el schema requerido: ${missingTables.join(', ')}.`,
           );
         }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
 
+        const documentColumns = await tableColumns(db, 'documents');
+        const chunkColumns = await tableColumns(db, 'chunks');
+        const documentSelect = [
+          'd.id',
+          'd.corpus_id',
+          'd.title',
+          columnExpression(documentColumns, 'd', 'description', "''"),
+          columnExpression(documentColumns, 'd', 'institution', "''"),
+          columnExpression(documentColumns, 'd', 'country', 'NULL'),
+          columnExpression(documentColumns, 'd', 'doc_date', 'NULL'),
+          columnExpression(documentColumns, 'd', 'file_size', 'NULL'),
+          columnExpression(documentColumns, 'd', 'page_count', 'NULL'),
+          columnExpression(documentColumns, 'd', 'file_path', 'NULL'),
+          columnExpression(documentColumns, 'd', 'pdf_path', 'NULL'),
+        ].join(', ');
+        const result = await db.execute(
+          `SELECT ${documentSelect} FROM documents d WHERE d.corpus_id = ? ORDER BY d.title COLLATE NOCASE;`,
+          [corpusId],
+        );
+        const loadedDocuments = (result.rows ?? [])
+          .map(row => documentFromRow(row, knowledgePackage, country))
+          .filter(document => document.relativePath.toLowerCase().endsWith('.pdf'));
+
+        if (cancelled) {
+          await db.close();
+          return;
+        }
+        dbRef.current = db;
+        packageRef.current = knowledgePackage;
+        documentColumnsRef.current = documentColumns;
+        chunkColumnsRef.current = chunkColumns;
+        setInstalledPackage(knowledgePackage);
+        setDocuments(loadedDocuments);
+        setStatus('ready');
+      } catch (cause) {
+        if (cancelled) return;
+        const nextError = cause instanceof Error ? cause : new Error(String(cause));
+        setInstalledPackage(null);
+        setError(nextError);
+        setStatus(
+          nextError instanceof KnowledgePackageMissingError ? 'missing' : 'error',
+        );
+      }
+    };
+
+    initialize().catch(() => undefined);
     return () => {
       cancelled = true;
-      dbRef.current?.close();
+      const db = dbRef.current;
       dbRef.current = null;
+      packageRef.current = null;
+      if (db) db.close();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assetDbName]);
+  }, [country, refreshVersion]);
 
-  // ── Guard ───────────────────────────────────────────────────────────────────
-
-  const requireDb = (): DB => {
-    if (!dbRef.current) {
-      throw new Error('[useSQLiteRAG] La base de datos no está lista todavía.');
+  const requireRuntime = useCallback(() => {
+    if (!dbRef.current || !packageRef.current) {
+      throw new Error('El paquete de conocimiento todavía no está listo.');
     }
-    return dbRef.current;
-  };
-
-  // ── similaritySearch ────────────────────────────────────────────────────────
+    return {db: dbRef.current, knowledgePackage: packageRef.current};
+  }, []);
 
   const similaritySearch = useCallback(
     async (
       question: string,
       queryEmbedding: number[],
+      topK = defaultTopK,
+      threshold = 0,
     ): Promise<SimilarityResult[]> => {
-      if (queryEmbedding.length < embeddingDim) {
-        throw new Error(
-          `[useSQLiteRAG] Dimensión incorrecta: esperaba al menos ${embeddingDim}, ` +
-            `recibió ${queryEmbedding.length}.`,
-        );
-      }
-
-      const db = requireDb();
-
-      // Serializa el vector de consulta como Float32 BLOB.
-      // op-sqlite lo pasa directamente a SQLite sin conversión adicional.
-      const embedding = toFloat32Buffer(
-        queryEmbedding.length === embeddingDim
-          ? queryEmbedding
-          : matryoshka256(queryEmbedding),
+      const {db, knowledgePackage} = requireRuntime();
+      const {manifest} = knowledgePackage;
+      const corpusId = corpusIdForCountry(knowledgePackage, country);
+      const normalizedEmbedding = truncateAndNormalize(
+        queryEmbedding,
+        manifest.embedding.retrievalDimensions,
       );
-
-      const query_str = transformQuestion(question);
-      const k = 30;
-      const rrf_k = 60;
-      const weight_fts = 1.0;
-      const weight_vec = 1.0;
-      const threshold = 0.01;
-      const params = [
-        embedding,
-        k,
-        query_str,
-        k,
-        rrf_k,
-        weight_fts,
-        rrf_k,
-        weight_vec,
-        threshold,
-      ];
+      const embedding = toFloat32Buffer(normalizedEmbedding);
+      const candidateCount = Math.max(topK * 6, 30);
+      const rrfConstant = 60;
+      const documentColumns = documentColumnsRef.current;
+      const chunkColumns = chunkColumnsRef.current;
+      const selectMetadata = [
+        columnExpression(documentColumns, 'd', 'institution', "''"),
+        columnExpression(documentColumns, 'd', 'file_path', 'NULL'),
+        columnExpression(documentColumns, 'd', 'pdf_path', 'NULL'),
+        columnExpression(chunkColumns, 'c', 'page', 'NULL'),
+        columnExpression(chunkColumns, 'c', 'page_range', 'NULL'),
+        columnExpression(chunkColumns, 'c', 'section_path', 'NULL'),
+      ].join(', ');
       const sql = `
         WITH vec_matches AS (
-          SELECT
-            c.id       AS chunk_id,
-            v.distance AS score
-          FROM chunks_vec AS v
-          JOIN chunks     AS c on c.rowid = v.rowid
-          WHERE
-            v.embedding MATCH (?)
-            AND v.k = ?
-            AND v.corpus_id = '4a767b76-1cba-4568-b4d9-f649fd6ccf0c'
-          ORDER BY v.distance
+          SELECT c.id AS chunk_id,
+                 ROW_NUMBER() OVER (ORDER BY v.distance) AS rank
+          FROM chunks_vec v
+          JOIN chunks c ON c.rowid = v.rowid
+          WHERE v.embedding MATCH ? AND v.k = ? AND v.corpus_id = ?
         ),
         fts_matches AS (
-          SELECT
-            chunk_id,
-            text_for_display AS text,
-            bm25(chunks_fts) AS score
+          SELECT chunk_id,
+                 ROW_NUMBER() OVER (ORDER BY bm25(chunks_fts)) AS rank
           FROM chunks_fts
-          WHERE chunks_fts MATCH (?)
-            AND corpus_id = '4a767b76-1cba-4568-b4d9-f649fd6ccf0c'
-          ORDER BY score
+          WHERE chunks_fts MATCH ? AND corpus_id = ?
+          ORDER BY bm25(chunks_fts)
           LIMIT ?
         ),
-        final AS (
-          SELECT
-            documents.title,
-            chunks.content,
-            fts_matches.text  AS text,
-            vec_matches.score AS vec_rank,
-            fts_matches.score AS fts_rank,
-            (
-              coalesce(1.0 / (? + fts_matches.score), 0.0) * ? +
-              coalesce(1.0 / (? + vec_matches.score), 0.0) * ?
-            ) AS similarity
-          FROM fts_matches
-          FULL OUTER JOIN vec_matches ON vec_matches.chunk_id = fts_matches.chunk_id
-          JOIN chunks ON chunks.id = coalesce(fts_matches.chunk_id, vec_matches.chunk_id)
-          JOIN documents ON documents.id = chunks.document_id
-          ORDER BY similarity DESC
+        ranked AS (
+          SELECT chunk_id, 1.0 / (? + rank) AS score FROM vec_matches
+          UNION ALL
+          SELECT chunk_id, 1.0 / (? + rank) AS score FROM fts_matches
+        ),
+        scores AS (
+          SELECT chunk_id, SUM(score) AS similarity
+          FROM ranked
+          GROUP BY chunk_id
         )
-        SELECT * FROM final WHERE similarity > ? LIMIT 5;
+        SELECT c.id AS chunk_id, c.document_id, c.content, d.title,
+               scores.similarity, ${selectMetadata}
+        FROM scores
+        JOIN chunks c ON c.id = scores.chunk_id
+        JOIN documents d ON d.id = c.document_id
+        WHERE scores.similarity >= ?
+        ORDER BY scores.similarity DESC
+        LIMIT ?;
       `;
+      const result = await db.execute(sql, [
+        embedding,
+        candidateCount,
+        corpusId,
+        transformQuestion(question),
+        corpusId,
+        candidateCount,
+        rrfConstant,
+        rrfConstant,
+        threshold,
+        topK,
+      ]);
 
-      const { rows } = await db.execute(sql, params);
-
-      return (rows ?? []).map(row => ({
-        title: row.title as string,
-        content: row.content as string,
-        similarity: row.similarity as number,
-      }));
+      return (result.rows ?? []).map((row, index) => {
+        const documentId = stringValue(row.document_id);
+        const relativePath = safeDocumentPath(
+          row.pdf_path ?? row.file_path,
+          documentId,
+          manifest.corpus.documentsDirectory,
+        );
+        const pageRange = stringValue(row.page_range);
+        const pageNumbers = pageRange
+          .split(/[-–]/)
+          .map(value => Number.parseInt(value.trim(), 10))
+          .filter(Number.isFinite);
+        return {
+          id: `${stringValue(row.chunk_id)}-${index}`,
+          chunkId: stringValue(row.chunk_id),
+          documentId,
+          title: stringValue(row.title, 'Documento sin título'),
+          institution: stringValue(row.institution),
+          content: stringValue(row.content),
+          similarity: Number(row.similarity ?? 0),
+          page: numberValue(row.page) ?? pageNumbers[0],
+          pageEnd: pageNumbers[1],
+          sectionPath: parseSectionPath(row.section_path),
+          relativePath,
+          absolutePath: knowledgePackage.resolvePath(relativePath),
+        };
+      });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [embeddingTable, embeddingDim],
+    [country, defaultTopK, requireRuntime],
   );
-
-  // ── query genérico ──────────────────────────────────────────────────────────
 
   const query = useCallback(
     async <T = Record<string, unknown>>(
       sql: string,
       params: Scalar[] = [],
     ): Promise<QueryResult<T>> => {
-      const db = requireDb();
+      const {db} = requireRuntime();
       const result = await db.execute(sql, params);
       return {
         rows: (result.rows ?? []) as T[],
@@ -334,31 +444,18 @@ export function useSQLiteRAG(
         insertId: result.insertId,
       };
     },
-    [],
+    [requireRuntime],
   );
 
-  // ─────────────────────────────────────────────────────────────────────────────
-
   return {
-    loading,
+    loading: status === 'loading',
     error,
-    isReady,
+    isReady: status === 'ready',
+    status,
+    installedPackage,
+    documents,
     similaritySearch,
     query,
-  }; 
-}
-
-function transformQuestion(str: string): string {
-  const sanitized = str
-    .replaceAll(/["\*\(\)]/g, '')
-    .replace(/  *$/, '"')
-    .replace(/^  */, '"')
-    .replaceAll(/  */g, '" OR "');
-  return `"${sanitized}"`;
-}
-
-function matryoshka256(emb: number[]): number[] {
-  const t = emb.slice(0, 256);
-  const norm = Math.sqrt(t.reduce((s, x) => s + x * x, 0));
-  return t.map(x => x / norm);
+    refresh: () => setRefreshVersion(value => value + 1),
+  };
 }

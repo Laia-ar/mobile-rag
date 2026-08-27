@@ -17,8 +17,14 @@ import { ConsultationScreen, MainSection } from './ConsultationScreen';
 import { RecommendationsScreen } from './RecommendationsScreen';
 import { TermsAndConditionsScreen } from './TermsAndConditionsScreen';
 import { WelcomeScreen } from './WelcomeScreen';
+import {useSQLiteRAG} from '../hooks/useRagEngine';
+import {useSavedItems} from '../hooks/useSavedItems';
+import {verifyOfflineAccessCode} from '../services/auth/accessService';
+import {openPdfAtPage} from '../services/native/offlineKnowledge';
+import {CountryCode} from '../types/knowledge';
 
 type LoginScreenProps = {
+  country: CountryCode;
   onLogin?: (accessId: string) => void;
   onRequestAccess?: () => void;
 };
@@ -27,24 +33,48 @@ const brandTail = require('../assets/login/infectoassist-tail.png');
 const fundacionHuespedLogo = require('../assets/country-selector/fundacion-huesped.png');
 const ONBOARDING_COMPLETED_KEY = '@infecto-assist/onboarding-completed';
 
-export function LoginScreen({ onLogin, onRequestAccess }: LoginScreenProps) {
+export function LoginScreen({country, onLogin, onRequestAccess}: LoginScreenProps) {
+  const rag = useSQLiteRAG({country});
+  const savedItems = useSavedItems();
   const [accessId, setAccessId] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
   const [hasLoggedIn, setHasLoggedIn] = useState(false);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false);
-  const [savedSourceIds, setSavedSourceIds] = useState<string[]>([]);
-  const [savedGuideIds, setSavedGuideIds] = useState<string[]>([]);
   const [activeMainSection, setActiveMainSection] =
     useState<MainSection>('consultation');
   const normalizedAccessId = accessId.trim();
-  const canLogin = normalizedAccessId.length > 0;
+  const canLogin =
+    normalizedAccessId.length > 0 && rag.status === 'ready' && !isVerifying;
 
-  const handleLogin = () => {
-    if (canLogin) {
+  const handleLogin = async () => {
+    if (!canLogin || !rag.installedPackage) return;
+    setIsVerifying(true);
+    setLoginError('');
+    try {
+      const accepted = await verifyOfflineAccessCode(
+        normalizedAccessId,
+        country,
+        rag.installedPackage.manifest,
+      );
+      if (!accepted) {
+        setLoginError('El ID no está habilitado para el país seleccionado.');
+        return;
+      }
       onLogin?.(normalizedAccessId);
+      setAccessId('');
       setHasLoggedIn(true);
+    } catch (cause) {
+      setLoginError(
+        cause instanceof Error
+          ? cause.message
+          : 'No se pudo validar el acceso offline.',
+      );
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -85,10 +115,12 @@ export function LoginScreen({ onLogin, onRequestAccess }: LoginScreenProps) {
       if (isChatbotOpen) {
         return (
           <ChatbotScreen
+            rag={rag}
             onBack={() => setIsChatbotOpen(false)}
             onOpenProfile={handleOpenProfile}
-            onSavedSourceIdsChange={setSavedSourceIds}
-            savedSourceIds={savedSourceIds}
+            onRemoveSource={savedItems.removeSource}
+            onSaveSource={savedItems.saveSource}
+            savedSourceIds={savedItems.savedSourceIds}
           />
         );
       }
@@ -96,11 +128,21 @@ export function LoginScreen({ onLogin, onRequestAccess }: LoginScreenProps) {
       return (
         <ConsultationScreen
           activeSection={activeMainSection}
+          documents={rag.documents}
+          knowledgeError={rag.error}
+          knowledgeStatus={rag.status}
           onOpenChatbot={() => setIsChatbotOpen(true)}
+          onOpenGuide={guide => openPdfAtPage(guide.absolutePath, 1)}
+          onOpenSavedSource={source =>
+            openPdfAtPage(source.absolutePath, source.page ?? 1)
+          }
           onOpenRecommendations={() => setIsRecommendationsOpen(true)}
-          onSavedGuideIdsChange={setSavedGuideIds}
+          onRemoveSource={savedItems.removeSource}
           onSelectSection={setActiveMainSection}
-          savedGuideIds={savedGuideIds}
+          onToggleGuide={savedItems.toggleGuide}
+          savedGuideIds={savedItems.savedGuideIds}
+          savedGuides={savedItems.savedGuides}
+          savedSources={savedItems.savedSources}
         />
       );
     }
@@ -143,7 +185,7 @@ export function LoginScreen({ onLogin, onRequestAccess }: LoginScreenProps) {
             autoCapitalize="characters"
             autoCorrect={false}
             onChangeText={setAccessId}
-            onSubmitEditing={handleLogin}
+            onSubmitEditing={() => handleLogin().catch(() => undefined)}
             returnKeyType="done"
             selectionColor="#F32735"
             style={styles.accessInput}
@@ -153,7 +195,7 @@ export function LoginScreen({ onLogin, onRequestAccess }: LoginScreenProps) {
             accessibilityRole="button"
             accessibilityState={{ disabled: !canLogin }}
             disabled={!canLogin}
-            onPress={handleLogin}
+            onPress={() => handleLogin().catch(() => undefined)}
             style={({ pressed }) => [
               styles.loginButton,
               canLogin ? styles.loginButtonEnabled : styles.loginButtonDisabled,
@@ -162,6 +204,13 @@ export function LoginScreen({ onLogin, onRequestAccess }: LoginScreenProps) {
           >
             <Text style={styles.loginButtonText}>Ingresar</Text>
           </Pressable>
+          {rag.status === 'loading' ? (
+            <Text style={styles.runtimeMessage}>Preparando datos offline…</Text>
+          ) : null}
+          {rag.status === 'missing' || rag.status === 'error' ? (
+            <Text style={styles.errorMessage}>{rag.error?.message}</Text>
+          ) : null}
+          {loginError ? <Text style={styles.errorMessage}>{loginError}</Text> : null}
           <Pressable
             accessibilityRole="link"
             accessibilityLabel="Solicitar un número de ID"
@@ -286,7 +335,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.31,
     textAlign: 'center',
   },
-  requestAccess: { alignSelf: 'center', marginTop: 30 },
+  runtimeMessage: {
+    marginTop: 8,
+    color: '#525252',
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    marginTop: 8,
+    color: '#B91C1C',
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  requestAccess: { alignSelf: 'center', marginTop: 12 },
   requestAccessPressed: { opacity: 0.62 },
   requestAccessText: {
     color: '#000000',

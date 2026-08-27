@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoginScreen } from './LoginScreen';
 
-type CountryId = 'argentina' | 'bolivia';
+export type CountryId = 'argentina' | 'bolivia';
 
 type CountrySelectorScreenProps = {
   onContinue?: (country: CountryId) => void;
@@ -45,7 +45,7 @@ export function CountrySelectorScreen({
   };
 
   if (hasContinued) {
-    return <LoginScreen />;
+    return <LoginScreen country={selectedCountry === 'argentina' ? 'AR' : 'BO'} />;
   }
 
   return (

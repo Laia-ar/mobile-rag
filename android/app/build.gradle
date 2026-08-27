@@ -1,3 +1,6 @@
+import groovy.json.JsonSlurper
+import java.security.MessageDigest
+
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
@@ -45,7 +48,13 @@ react {
 
     /* Hermes Commands */
     //   The hermes compiler command to run. By default it is 'hermesc'
-    hermesCommand = "$rootDir/../node_modules/hermes-compiler/hermesc/linux64-bin/hermesc"
+    def hostOs = System.getProperty("os.name").toLowerCase()
+    def hermesBinary = hostOs.contains("windows")
+        ? "win64-bin/hermesc.exe"
+        : hostOs.contains("mac")
+            ? "osx-bin/hermesc"
+            : "linux64-bin/hermesc"
+    hermesCommand = "$rootDir/../node_modules/hermes-compiler/hermesc/${hermesBinary}"
     //
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
     hermesFlags = ["-O", "-output-source-map"]
@@ -76,6 +85,10 @@ android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
+
+    androidResources {
+        noCompress += ["gguf", "sqlite", "pdf"]
+    }
 
     namespace "gnu.app"
     defaultConfig {
@@ -136,5 +149,69 @@ dependencies {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
+    }
+}
+
+def offlineKnowledgeDir = file("src/main/assets/knowledge.current")
+
+tasks.register("validateOfflineKnowledge") {
+    dependsOn("syncRNLlamaHtpAssets")
+    group = "verification"
+    description = "Valida el paquete offline antes de construir prodRelease."
+    inputs.dir(offlineKnowledgeDir)
+
+    doLast {
+        def manifestFile = new File(offlineKnowledgeDir, "manifest.json")
+        if (!manifestFile.isFile()) {
+            throw new GradleException("Falta src/main/assets/knowledge.current/manifest.json")
+        }
+
+        def manifest = new JsonSlurper().parse(manifestFile)
+        if (manifest.schemaVersion != 1 || !manifest.files) {
+            throw new GradleException("El manifiesto offline no cumple schemaVersion 1.")
+        }
+
+        manifest.countries.each { country ->
+            def hashes = manifest.access?.acceptedCodeHashes?.get(country)
+            if (!(hashes instanceof Collection) || hashes.isEmpty()) {
+                throw new GradleException("No hay IDs de acceso configurados para ${country}.")
+            }
+        }
+
+        manifest.files.each { entry ->
+            def relativePath = entry.path?.toString()
+            if (!relativePath || relativePath.startsWith("/") || relativePath.contains("..")) {
+                throw new GradleException("Ruta inválida en el manifiesto: ${relativePath}")
+            }
+            def packagedFile = new File(offlineKnowledgeDir, relativePath)
+            if (!packagedFile.isFile()) {
+                throw new GradleException("Falta el archivo offline declarado: ${relativePath}")
+            }
+            def expectedHash = entry.sha256?.toString()?.toLowerCase()
+            if (!(expectedHash ==~ /[a-f0-9]{64}/)) {
+                throw new GradleException("SHA-256 inválido para ${relativePath}")
+            }
+            def digest = MessageDigest.getInstance("SHA-256")
+            packagedFile.withInputStream { input ->
+                byte[] buffer = new byte[1024 * 1024]
+                int read
+                while ((read = input.read(buffer)) > 0) digest.update(buffer, 0, read)
+            }
+            def actualHash = digest.digest().collect {
+                String.format("%02x", it & 0xff)
+            }.join()
+            if (actualHash != expectedHash) {
+                throw new GradleException("Checksum incorrecto para ${relativePath}")
+            }
+            if (entry.sizeBytes != null && packagedFile.length() != (entry.sizeBytes as long)) {
+                throw new GradleException("Tamaño incorrecto para ${relativePath}")
+            }
+        }
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name == "preProdReleaseBuild") {
+        task.dependsOn("validateOfflineKnowledge")
     }
 }

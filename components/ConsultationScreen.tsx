@@ -9,8 +9,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { GuideMockDocument } from '../data/guidesMock';
+import {
+  KnowledgeDocument,
+  KnowledgePackageStatus,
+  SavedGuide,
+  SavedSource,
+} from '../types/knowledge';
 import { GuidesScreen } from './GuidesScreen';
+import {ProfileScreen} from './ProfileScreen';
 
 export type MainSection = 'guides' | 'consultation' | 'profile';
 
@@ -21,9 +27,16 @@ type ConsultationScreenProps = {
   onOpenRecommendations?: () => void;
   onOpenInteractionGuide?: () => void;
   onOpenHelp?: () => void;
+  documents: KnowledgeDocument[];
+  knowledgeStatus: KnowledgePackageStatus;
+  knowledgeError?: Error | null;
   savedGuideIds?: string[];
-  onSavedGuideIdsChange?: (guideIds: string[]) => void;
-  onOpenGuide?: (guide: GuideMockDocument) => void;
+  onToggleGuide: (guide: KnowledgeDocument) => void;
+  onOpenGuide: (guide: KnowledgeDocument) => void;
+  savedGuides: SavedGuide[];
+  savedSources: SavedSource[];
+  onOpenSavedSource: (source: SavedSource) => void;
+  onRemoveSource: (chunkId: string) => void;
 };
 
 type NavigationItem = {
@@ -65,11 +78,6 @@ const navigationItems: NavigationItem[] = [
   },
 ];
 
-const sectionTitles: Record<Exclude<MainSection, 'consultation'>, string> = {
-  guides: 'Guías',
-  profile: 'Perfil',
-};
-
 export function ConsultationScreen({
   activeSection = 'consultation',
   onSelectSection,
@@ -77,9 +85,16 @@ export function ConsultationScreen({
   onOpenRecommendations,
   onOpenInteractionGuide,
   onOpenHelp,
+  documents,
+  knowledgeStatus,
+  knowledgeError,
   savedGuideIds = [],
-  onSavedGuideIdsChange,
+  onToggleGuide,
   onOpenGuide,
+  savedGuides,
+  savedSources,
+  onOpenSavedSource,
+  onRemoveSource,
 }: ConsultationScreenProps) {
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -141,17 +156,22 @@ export function ConsultationScreen({
         </View>
       ) : activeSection === 'guides' ? (
         <GuidesScreen
+          documents={documents}
+          error={knowledgeError}
           onOpenGuide={onOpenGuide}
-          onOpenProfile={() => onSelectSection?.('profile')}
-          onSavedGuideIdsChange={guideIds =>
-            onSavedGuideIdsChange?.(guideIds)
-          }
+          onToggleGuide={onToggleGuide}
           savedGuideIds={savedGuideIds}
+          status={knowledgeStatus}
         />
       ) : (
-        <View style={styles.content}>
-          <Text style={styles.title}>{sectionTitles[activeSection]}</Text>
-        </View>
+        <ProfileScreen
+          guides={savedGuides}
+          onOpenGuide={onOpenGuide}
+          onOpenSource={onOpenSavedSource}
+          onRemoveGuide={onToggleGuide}
+          onRemoveSource={onRemoveSource}
+          sources={savedSources}
+        />
       )}
 
       {activeSection === 'consultation' ? (
