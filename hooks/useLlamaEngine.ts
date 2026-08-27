@@ -235,6 +235,7 @@ export function useLlamaEngine(options: {
       const params: CompletionParams = {
         ...DEFAULT_COMPLETION_PARAMS,
         ...completionParams,
+        enable_thinking: false,
         // prompt:"que onda",
         messages: [{
           role: "system",
