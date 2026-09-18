@@ -42,6 +42,7 @@ export function useOfflineChat(rag: UseSQLiteRAGReturn) {
     completionParams: EMPTY_COMPLETION_PARAMS,
   });
   const loadChatModel = chatEngine.loadModel;
+  const warmupChat = chatEngine.warmup;
   const generate = chatEngine.generate;
   const stopGeneration = chatEngine.stopGeneration;
   const loadEmbeddingModel = embeddingEngine.loadModel;
@@ -103,6 +104,8 @@ export function useOfflineChat(rag: UseSQLiteRAGReturn) {
         initializedVersionRef.current = packageManifest.packageVersion;
         initializingVersionRef.current = null;
         setStatus('ready');
+        // Precarga en background del system prompt en el KV cache.
+        warmupChat(systemPrompt).catch(() => undefined);
       } catch (cause) {
         if (cancelled) return;
         const nextError = cause instanceof Error ? cause : new Error(String(cause));
@@ -119,6 +122,7 @@ export function useOfflineChat(rag: UseSQLiteRAGReturn) {
   }, [
     loadChatModel,
     loadEmbeddingModel,
+    warmupChat,
     rag.installedPackage,
     rag.status,
   ]);

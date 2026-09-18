@@ -55,11 +55,14 @@ const DEFAULT_CONTEXT_PARAMS: Partial<ContextParams> = {
  * Parámetros de generación de texto.
  */
 const DEFAULT_COMPLETION_PARAMS = {
-  temperature: 0.7,
+  temperature: 0.0,
   top_p: 0.9,
   top_k: 40,
 
-  // n_predict: 512,
+  // Explícito: llama.rn persiste n_predict entre completions; si el warmup
+  // corre con n_predict: 1 y generate no lo redefine, la respuesta se corta
+  // al primer token.
+  n_predict: 512,
 
   // stop: [
   //   '<|eot_id|>',
@@ -166,8 +169,10 @@ export function useLlamaEngine(options: {
 
   const contextRef = useRef<LlamaContext>(undefined);
   const abortRef = useRef<boolean>(false);
+  const warmupRef = useRef<Promise<void> | null>(null);
 
   const releaseContext = useCallback(async () => {
+    warmupRef.current = null;
     if (contextRef.current) {
       try {
         await contextRef.current.release();
@@ -216,6 +221,44 @@ export function useLlamaEngine(options: {
     }
   }, [initContext]);
 
+  /**
+   * Precarga el system prompt estático en el KV cache del contexto.
+   *
+   * Corre una completion mínima (1 token) con el basePrompt solo — sin el
+   * bloque <fuentes> ni el CONTEXTO RECUPERADO, que son dinámicos. La query
+   * real comparte ese prefijo token a token, así que llama.cpp saltea su
+   * procesamiento (ahorro medido en Moto G72 + prompt largo: ~4 min → ~45 s).
+   *
+   * Es fire-and-forget: generate() espera a que termine si sigue corriendo.
+   */
+  const warmup = useCallback(
+    (systemPrompt?: string): Promise<void> => {
+      if (!contextRef.current) return Promise.resolve();
+      if (warmupRef.current) return warmupRef.current;
+      const staticPrefix =
+        systemPrompt ?? [PROMT_CORE, prompt_acronyms, prompt_glossary].join('\n\n');
+      const promise = (async () => {
+        try {
+          console.log('warmup: precargando system prompt en KV cache');
+          const t0 = Date.now();
+          await contextRef.current?.completion({
+            ...DEFAULT_COMPLETION_PARAMS,
+            ...completionParams,
+            enable_thinking: false,
+            n_predict: 1,
+            messages: [{role: 'system', content: staticPrefix}],
+          });
+          console.log(`warmup: listo en ${(Date.now() - t0) / 1000}s`);
+        } catch (err) {
+          console.log('warmup falló (no bloqueante):', toError(err).message);
+        }
+      })();
+      warmupRef.current = promise;
+      return promise;
+    },
+    [completionParams],
+  );
+
   const generate = useCallback(
     async (
       messages: ChatLine[],
@@ -223,6 +266,11 @@ export function useLlamaEngine(options: {
       onPartialResponse: (p: string) => void,
       systemPrompt?: string,
     ) => {
+      if (warmupRef.current) {
+        console.log('generate: esperando warmup...');
+        await warmupRef.current;
+        warmupRef.current = null;
+      }
       if (!contextRef.current) throw new Error('Modelo no cargado: generate');
       if (status === 'generating')
         throw new Error('Ya hay una generación en curso');
@@ -342,6 +390,7 @@ export function useLlamaEngine(options: {
     modelPath,
     error,
     tokensPerSec,
+    warmup,
     vectorize,
     loadModel,
     generate,
