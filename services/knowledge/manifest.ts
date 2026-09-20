@@ -137,11 +137,44 @@ export function parseKnowledgeManifest(raw: string): KnowledgeManifest {
     embedding.modelPath,
     'embedding.modelPath',
   );
-  const llmModelPath = requireString(llm.modelPath, 'llm.modelPath');
 
-  [databasePath, documentsDirectory, embeddingModelPath, llmModelPath].forEach(
-    assertSafeRelativePath,
-  );
+  const llmProvider =
+    llm.provider === undefined
+      ? undefined
+      : requireString(llm.provider, 'llm.provider');
+  if (
+    llmProvider !== undefined &&
+    llmProvider !== 'local' &&
+    llmProvider !== 'openrouter'
+  ) {
+    throw new Error('llm.provider solo admite "local" u "openrouter".');
+  }
+  const isRemoteLlm = llmProvider === 'openrouter';
+  const llmModelPath =
+    llm.modelPath === undefined
+      ? undefined
+      : requireString(llm.modelPath, 'llm.modelPath');
+  if (!isRemoteLlm && !llmModelPath) {
+    throw new Error(
+      'llm.modelPath es obligatorio cuando provider no es "openrouter".',
+    );
+  }
+  let llmRemoteModelId: string | undefined;
+  let llmApiKey: string | undefined;
+  if (isRemoteLlm) {
+    llmRemoteModelId = requireString(llm.remoteModelId, 'llm.remoteModelId');
+    // apiKey es opcional: si no viene embebida, la app usa la key guardada
+    // por el usuario en Ajustes (AsyncStorage).
+    if (llm.apiKey !== undefined) {
+      llmApiKey = requireString(llm.apiKey, 'llm.apiKey');
+    }
+  }
+
+  const requiredPaths = [databasePath, documentsDirectory, embeddingModelPath];
+  if (llmModelPath) {
+    requiredPaths.push(llmModelPath);
+  }
+  requiredPaths.forEach(assertSafeRelativePath);
   if (llm.systemPromptPath !== undefined) {
     assertSafeRelativePath(
       requireString(llm.systemPromptPath, 'llm.systemPromptPath'),
@@ -150,7 +183,10 @@ export function parseKnowledgeManifest(raw: string): KnowledgeManifest {
 
   const files = parseFiles(root.files);
   const declaredFiles = new Set(files.map(file => file.path));
-  const requiredFiles = [databasePath, embeddingModelPath, llmModelPath];
+  const requiredFiles = [databasePath, embeddingModelPath];
+  if (llmModelPath) {
+    requiredFiles.push(llmModelPath);
+  }
   if (llm.systemPromptPath) {
     requiredFiles.push(llm.systemPromptPath as string);
   }
@@ -226,7 +262,10 @@ export function parseKnowledgeManifest(raw: string): KnowledgeManifest {
     },
     llm: {
       id: requireString(llm.id, 'llm.id'),
+      provider: llmProvider as KnowledgeManifest['llm']['provider'],
       modelPath: llmModelPath,
+      remoteModelId: llmRemoteModelId,
+      apiKey: llmApiKey,
       systemPromptPath:
         typeof llm.systemPromptPath === 'string'
           ? llm.systemPromptPath

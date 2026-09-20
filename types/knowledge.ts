@@ -31,7 +31,21 @@ export interface KnowledgeManifest {
   };
   llm: {
     id: string;
-    modelPath: string;
+    /**
+     * Sin provider (o "local") el LLM corre on-device con llama.rn y el GGUF
+     * de modelPath. Con "openrouter" la generación sale por HTTP y el GGUF
+     * del LLM no se carga (el embedding sigue siendo local).
+     */
+    provider?: 'local' | 'openrouter';
+    /** GGUF local; obligatorio salvo con provider "openrouter". */
+    modelPath?: string;
+    /** ID del modelo remoto (p.ej. "anthropic/claude-sonnet-5"). Solo OpenRouter. */
+    remoteModelId?: string;
+    /**
+     * API key de OpenRouter embebida (override para builds internas). Si no
+     * está, la app usa la key que el usuario guarda en Ajustes.
+     */
+    apiKey?: string;
     systemPromptPath?: string;
     contextParams?: Record<string, number | boolean | string>;
     completionParams?: Record<string, number | boolean | string | string[]>;

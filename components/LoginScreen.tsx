@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChatbotScreen } from './ChatbotScreen';
+import { ApiKeySettingsScreen } from './ApiKeySettingsScreen';
 import { ConsultationScreen, MainSection } from './ConsultationScreen';
 import { RecommendationsScreen } from './RecommendationsScreen';
 import { TermsAndConditionsScreen } from './TermsAndConditionsScreen';
@@ -44,6 +45,7 @@ export function LoginScreen({country, onLogin, onRequestAccess}: LoginScreenProp
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   const [isRecommendationsOpen, setIsRecommendationsOpen] = useState(false);
+  const [isApiKeySettingsOpen, setIsApiKeySettingsOpen] = useState(false);
   const [activeMainSection, setActiveMainSection] =
     useState<MainSection>('consultation');
   const normalizedAccessId = accessId.trim();
@@ -104,6 +106,12 @@ export function LoginScreen({country, onLogin, onRequestAccess}: LoginScreenProp
 
   if (hasAcceptedTerms) {
     if (hasCompletedOnboarding) {
+      if (isApiKeySettingsOpen) {
+        return (
+          <ApiKeySettingsScreen onBack={() => setIsApiKeySettingsOpen(false)} />
+        );
+      }
+
       if (isRecommendationsOpen) {
         return (
           <RecommendationsScreen
@@ -117,6 +125,7 @@ export function LoginScreen({country, onLogin, onRequestAccess}: LoginScreenProp
           <ChatbotScreen
             rag={rag}
             onBack={() => setIsChatbotOpen(false)}
+            onOpenApiKeySettings={() => setIsApiKeySettingsOpen(true)}
             onOpenProfile={handleOpenProfile}
             onRemoveSource={savedItems.removeSource}
             onSaveSource={savedItems.saveSource}
@@ -131,6 +140,7 @@ export function LoginScreen({country, onLogin, onRequestAccess}: LoginScreenProp
           documents={rag.documents}
           knowledgeError={rag.error}
           knowledgeStatus={rag.status}
+          onOpenApiKeySettings={() => setIsApiKeySettingsOpen(true)}
           onOpenChatbot={() => setIsChatbotOpen(true)}
           onOpenGuide={guide => openPdfAtPage(guide.absolutePath, 1)}
           onOpenSavedSource={source =>

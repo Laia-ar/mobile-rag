@@ -134,6 +134,38 @@ export function buildSystemPrompt(
   ].join('\n\n');
 }
 
+/**
+ * Arma los mensajes para un chat completions remoto (OpenAI-compatible).
+ *
+ * A diferencia del modo local —que concatena todo en un único system prompt
+ * para aprovechar el KV cache de llama.cpp— acá el system message lleva solo
+ * el system prompt del paquete, y el bloque <fuentes> + CONTEXTO RECUPERADO
+ * viaja prefijado en el último mensaje del usuario (el turno actual), junto
+ * con la pregunta.
+ */
+export function buildRemoteMessages(
+  messages: ChatLine[],
+  docs: SimilarityResult[],
+  basePrompt?: string,
+): ChatLine[] {
+  const system =
+    basePrompt ?? [PROMT_CORE, prompt_acronyms, prompt_glossary].join('\n\n');
+  const contextBlock = [fuentes(docs), contextRecuperado(docs)].join('\n');
+  const lastUserIndex = messages.map(msg => msg.role).lastIndexOf('user');
+  const result: ChatLine[] = [{role: 'system', content: system}];
+  messages.forEach((msg, index) => {
+    if (index === lastUserIndex) {
+      result.push({
+        role: 'user',
+        content: `${contextBlock}\n\nCONSULTA:\n${msg.content}`,
+      });
+    } else {
+      result.push(msg);
+    }
+  });
+  return result;
+}
+
 
 /**
  * useLlamaEngine()

@@ -82,4 +82,61 @@ describe('parseKnowledgeManifest', () => {
       'corpus.countryIds.BO',
     );
   });
+
+  it('acepta un LLM remoto OpenRouter sin modelPath', () => {
+    const manifest = validManifest();
+    (manifest.llm as Record<string, unknown>).provider = 'openrouter';
+    (manifest.llm as Record<string, unknown>).remoteModelId =
+      'anthropic/claude-sonnet-5';
+    (manifest.llm as Record<string, unknown>).apiKey = 'sk-or-test';
+    delete (manifest.llm as Record<string, unknown>).modelPath;
+    manifest.files = manifest.files.filter(
+      file => file.path !== 'models/chat.gguf',
+    );
+    const parsed = parseKnowledgeManifest(JSON.stringify(manifest));
+    expect(parsed.llm.provider).toBe('openrouter');
+    expect(parsed.llm.remoteModelId).toBe('anthropic/claude-sonnet-5');
+    expect(parsed.llm.modelPath).toBeUndefined();
+  });
+
+  it('exige remoteModelId con provider openrouter', () => {
+    const manifest = validManifest();
+    (manifest.llm as Record<string, unknown>).provider = 'openrouter';
+    expect(() => parseKnowledgeManifest(JSON.stringify(manifest))).toThrow(
+      'llm.remoteModelId',
+    );
+  });
+
+  it('acepta un LLM remoto sin apiKey (se configura en Ajustes)', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'remote-test',
+      provider: 'openrouter',
+      remoteModelId: 'x-ai/grok-4.20',
+    } as unknown as typeof manifest.llm;
+    manifest.files = manifest.files.filter(
+      file => file.path !== 'models/chat.gguf',
+    );
+    const parsed = parseKnowledgeManifest(JSON.stringify(manifest));
+    expect(parsed.llm.provider).toBe('openrouter');
+    expect(parsed.llm.apiKey).toBeUndefined();
+  });
+
+  it('rechaza una apiKey vacía si viene declarada', () => {
+    const manifest = validManifest();
+    (manifest.llm as Record<string, unknown>).provider = 'openrouter';
+    (manifest.llm as Record<string, unknown>).remoteModelId = 'x-ai/grok-4.20';
+    (manifest.llm as Record<string, unknown>).apiKey = '  ';
+    expect(() => parseKnowledgeManifest(JSON.stringify(manifest))).toThrow(
+      'llm.apiKey',
+    );
+  });
+
+  it('exige modelPath cuando el provider es local', () => {
+    const manifest = validManifest();
+    delete (manifest.llm as Record<string, unknown>).modelPath;
+    expect(() => parseKnowledgeManifest(JSON.stringify(manifest))).toThrow(
+      'llm.modelPath',
+    );
+  });
 });

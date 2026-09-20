@@ -27,6 +27,7 @@ type ChatbotScreenProps = {
   onSaveSource: (source: SourceReference) => void;
   onRemoveSource?: (chunkId: string) => void;
   onOpenProfile?: () => void;
+  onOpenApiKeySettings?: () => void;
 };
 
 const sendArrow = require('../assets/country-selector/arrow-right.png');
@@ -41,12 +42,14 @@ export function ChatbotScreen({
   onSaveSource,
   onRemoveSource,
   onOpenProfile,
+  onOpenApiKeySettings,
 }: ChatbotScreenProps) {
   const chat = useOfflineChat(rag);
   const [input, setInput] = useState('');
   const [areSourcesOpen, setAreSourcesOpen] = useState(false);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
-  const canSend = input.trim().length > 0 && chat.status === 'ready';
+  const canSend =
+    input.trim().length > 0 && chat.status === 'ready' && !chat.missingApiKey;
 
   const handleSend = async () => {
     const question = input.trim();
@@ -157,6 +160,26 @@ export function ChatbotScreen({
             </View>
           ) : null}
 
+          {chat.missingApiKey ? (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorTitle}>
+                Falta tu API key de OpenRouter
+              </Text>
+              <Text style={styles.errorText}>
+                Configurá tu API key de OpenRouter en Ajustes para usar el chat
+                en la nube.
+              </Text>
+              {onOpenApiKeySettings ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onOpenApiKeySettings}
+                  style={styles.apiKeyButton}>
+                  <Text style={styles.apiKeyButtonText}>Configurar API key</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
           {rag.status === 'error' || chat.status === 'error' ? (
             <View style={styles.errorCard}>
               <Text style={styles.errorTitle}>No se pudo iniciar el chat</Text>
@@ -236,6 +259,8 @@ const styles = StyleSheet.create({
   errorCard: {padding: 14, borderWidth: 1, borderColor: '#FCA5A5', borderRadius: 10, backgroundColor: '#FEF2F2'},
   errorTitle: {fontSize: 15, fontWeight: '700', color: '#991B1B'},
   errorText: {marginTop: 5, fontSize: 13, lineHeight: 19, color: '#7F1D1D'},
+  apiKeyButton: {alignSelf: 'flex-start', marginTop: 12, paddingHorizontal: 13, paddingVertical: 9, borderRadius: 8, backgroundColor: '#F32735'},
+  apiKeyButtonText: {fontSize: 14, fontWeight: '600', color: '#FFFFFF'},
   composer: {flexDirection: 'row', alignItems: 'flex-end', gap: 10, padding: 12, borderTopWidth: 1, borderTopColor: '#E5E5E5', backgroundColor: '#FFFFFF'},
   input: {flex: 1, minHeight: 46, maxHeight: 120, paddingHorizontal: 14, paddingVertical: 11, borderWidth: 1, borderColor: '#D4D4D4', borderRadius: 12, color: '#262626', fontSize: 15},
   sendButton: {width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#F32735'},

@@ -9,6 +9,7 @@ type ProfileScreenProps = {
   onOpenSource: (source: SavedSource) => void;
   onRemoveGuide: (guide: SavedGuide) => void;
   onRemoveSource: (chunkId: string) => void;
+  onOpenApiKeySettings?: () => void;
 };
 
 export function ProfileScreen({
@@ -18,6 +19,7 @@ export function ProfileScreen({
   onOpenSource,
   onRemoveGuide,
   onRemoveSource,
+  onOpenApiKeySettings,
 }: ProfileScreenProps) {
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -25,6 +27,17 @@ export function ProfileScreen({
       <Text style={styles.subtitle}>
         Guías completas y fragmentos que guardaste en este dispositivo.
       </Text>
+
+      <Text style={styles.sectionTitle}>Ajustes</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onOpenApiKeySettings}
+        style={({pressed}) => [styles.card, pressed ? styles.pressed : null]}>
+        <Text style={styles.cardTitle}>API key de OpenRouter</Text>
+        <Text style={styles.meta}>
+          Configurá la key para el chat en la nube y consultá su crédito.
+        </Text>
+      </Pressable>
 
       <Text style={styles.sectionTitle}>Guías ({guides.length})</Text>
       {guides.map(guide => (
@@ -96,4 +109,5 @@ const styles = StyleSheet.create({
   primaryText: {fontSize: 13, fontWeight: '600', color: '#FFFFFF'},
   secondaryText: {fontSize: 13, fontWeight: '600', color: '#525252'},
   empty: {paddingVertical: 12, fontSize: 13, color: '#8A8A8A'},
+  pressed: {opacity: 0.62},
 });

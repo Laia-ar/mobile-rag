@@ -27,6 +27,7 @@ type ConsultationScreenProps = {
   onOpenRecommendations?: () => void;
   onOpenInteractionGuide?: () => void;
   onOpenHelp?: () => void;
+  onOpenApiKeySettings?: () => void;
   documents: KnowledgeDocument[];
   knowledgeStatus: KnowledgePackageStatus;
   knowledgeError?: Error | null;
@@ -85,6 +86,7 @@ export function ConsultationScreen({
   onOpenRecommendations,
   onOpenInteractionGuide,
   onOpenHelp,
+  onOpenApiKeySettings,
   documents,
   knowledgeStatus,
   knowledgeError,
@@ -166,6 +168,7 @@ export function ConsultationScreen({
       ) : (
         <ProfileScreen
           guides={savedGuides}
+          onOpenApiKeySettings={onOpenApiKeySettings}
           onOpenGuide={onOpenGuide}
           onOpenSource={onOpenSavedSource}
           onRemoveGuide={onToggleGuide}
