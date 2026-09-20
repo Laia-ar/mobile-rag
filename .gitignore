@@ -83,8 +83,13 @@ yarn-error.log
 *.env
 /android/app/src/main/assets/knowledge.*
 /.pnpm-store/
+/.jdk/
+/.knowledge-download/
+/.android-sdk/
 /bases-vectores/
 /Corpus/
 /Palmera - RAG.docx
 /*.db
 /*.gguf
+/releases/
+/results/

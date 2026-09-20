@@ -134,9 +134,15 @@ android {
             applicationIdSuffix ".dev"
             resValue "string", "app_name", "Palmera Dev"
         }
-        prod {
+        local {
             dimension "environment"
-            resValue "string", "app_name", "Palmera"
+            applicationIdSuffix ".local"
+            resValue "string", "app_name", "Palmera Local"
+        }
+        cloud {
+            dimension "environment"
+            applicationIdSuffix ".cloud"
+            resValue "string", "app_name", "Palmera Cloud"
         }
     }
 }
@@ -211,7 +217,7 @@ tasks.register("validateOfflineKnowledge") {
 }
 
 tasks.configureEach { task ->
-    if (task.name == "preProdReleaseBuild") {
+    if (task.name == "preLocalReleaseBuild" || task.name == "preCloudReleaseBuild") {
         task.dependsOn("validateOfflineKnowledge")
     }
 }

@@ -1,6 +1,16 @@
 #!/bin/bash
+# Uso: ./build-release.sh [local|cloud]
+# El paquete en android/app/src/main/assets/knowledge.current debe coincidir con el flavor:
+# local = LLM GGUF bundleado; cloud = manifest.llm.provider "openrouter" (sin GGUF).
 
 set -e
+
+FLAVOR="${1:-local}"
+[ "$FLAVOR" = "local" ] || [ "$FLAVOR" = "cloud" ] || {
+  echo "Flavor inválido: $FLAVOR (usar local|cloud)" >&2
+  exit 1
+}
+FLAVOR_CAP="$(tr '[:lower:]' '[:upper:]' <<< "${FLAVOR:0:1}")${FLAVOR:1}"
 
 JAVA_MAJOR=$(java -version 2>&1 | awk -F '"' '/version/ { split($2, version, "."); print version[1]; exit }')
 [ "$JAVA_MAJOR" = "17" ] || {
@@ -8,14 +18,22 @@ JAVA_MAJOR=$(java -version 2>&1 | awk -F '"' '/version/ { split($2, version, "."
   exit 1
 }
 
-test -f android/app/src/main/assets/knowledge.current/manifest.json || {
+MANIFEST=android/app/src/main/assets/knowledge.current/manifest.json
+test -f "$MANIFEST" || {
   echo "Falta el paquete android/app/src/main/assets/knowledge.current" >&2
   exit 1
 }
 
+IS_CLOUD=$(grep -c '"provider": "openrouter"' "$MANIFEST" || true)
+if [ "$FLAVOR" = "cloud" ] && [ "$IS_CLOUD" = "0" ]; then
+  echo "knowledge.current no es una variante cloud (sin provider openrouter)" >&2; exit 1
+fi
+if [ "$FLAVOR" = "local" ] && [ "$IS_CLOUD" != "0" ]; then
+  echo "knowledge.current es una variante cloud; buildear con: $0 cloud" >&2; exit 1
+fi
+
 cd android
-./gradlew --no-problems-report validateOfflineKnowledge assembleProdRelease
+./gradlew --no-problems-report "validateOfflineKnowledge" "assemble${FLAVOR_CAP}Release"
 cd ..
 
-find android/app/build/outputs/apk/prod/release -name "*.apk" -exec ls -lah {} \;
-
+find "android/app/build/outputs/apk/$FLAVOR/release" -name "*.apk" -exec ls -lah {} \;
