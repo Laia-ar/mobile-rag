@@ -161,12 +161,18 @@ export function parseKnowledgeManifest(raw: string): KnowledgeManifest {
   }
   let llmRemoteModelId: string | undefined;
   let llmApiKey: string | undefined;
+  let llmBaseUrl: string | undefined;
   if (isRemoteLlm) {
     llmRemoteModelId = requireString(llm.remoteModelId, 'llm.remoteModelId');
     // apiKey es opcional: si no viene embebida, la app usa la key guardada
     // por el usuario en Ajustes (AsyncStorage).
     if (llm.apiKey !== undefined) {
       llmApiKey = requireString(llm.apiKey, 'llm.apiKey');
+    }
+    // baseUrl es opcional: default OpenRouter; con valor, cualquier endpoint
+    // OpenAI-compatible (p.ej. llama.cpp propio).
+    if (llm.baseUrl !== undefined) {
+      llmBaseUrl = requireString(llm.baseUrl, 'llm.baseUrl');
     }
   }
 
@@ -266,6 +272,7 @@ export function parseKnowledgeManifest(raw: string): KnowledgeManifest {
       modelPath: llmModelPath,
       remoteModelId: llmRemoteModelId,
       apiKey: llmApiKey,
+      baseUrl: llmBaseUrl,
       systemPromptPath:
         typeof llm.systemPromptPath === 'string'
           ? llm.systemPromptPath

@@ -132,6 +132,36 @@ describe('parseKnowledgeManifest', () => {
     );
   });
 
+  it('propaga llm.baseUrl cuando viene declarada (servidor propio)', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'vultr-test',
+      provider: 'openrouter',
+      remoteModelId: 'gemma-4-e2b-q4km',
+      baseUrl: 'http://64.176.6.198:8002/v1',
+      apiKey: 'key-de-prueba',
+    } as unknown as typeof manifest.llm;
+    manifest.files = manifest.files.filter(
+      file => file.path !== 'models/chat.gguf',
+    );
+    const parsed = parseKnowledgeManifest(JSON.stringify(manifest));
+    expect(parsed.llm.baseUrl).toBe('http://64.176.6.198:8002/v1');
+  });
+
+  it('deja llm.baseUrl undefined cuando no viene (default OpenRouter)', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'remote-test',
+      provider: 'openrouter',
+      remoteModelId: 'x-ai/grok-4.20',
+    } as unknown as typeof manifest.llm;
+    manifest.files = manifest.files.filter(
+      file => file.path !== 'models/chat.gguf',
+    );
+    const parsed = parseKnowledgeManifest(JSON.stringify(manifest));
+    expect(parsed.llm.baseUrl).toBeUndefined();
+  });
+
   it('exige modelPath cuando el provider es local', () => {
     const manifest = validManifest();
     delete (manifest.llm as Record<string, unknown>).modelPath;
