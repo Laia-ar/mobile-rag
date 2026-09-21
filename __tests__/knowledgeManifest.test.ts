@@ -220,6 +220,55 @@ describe('parseKnowledgeManifest', () => {
     expect(parsed.llm.remoteOptions?.[0].baseUrl).toBeUndefined();
   });
 
+  it('propaga extraBody por opción (p.ej. chat_template_kwargs de llama.cpp)', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'vultr-test',
+      provider: 'openrouter',
+      remoteModelId: 'gemma-4-e2b-q4km',
+      baseUrl: 'http://64.176.6.198:8002/v1',
+      remoteOptions: [
+        {id: 'Gemma 4 E2B', remoteModelId: 'gemma-4-e2b-q4km'},
+        {
+          id: 'Qwen 3.5 4B',
+          remoteModelId: 'qwen3.5-4b-q4km',
+          baseUrl: 'http://64.176.6.198:8001/v1',
+          extraBody: {chat_template_kwargs: {enable_thinking: false}},
+        },
+      ],
+    } as unknown as typeof manifest.llm;
+    manifest.files = manifest.files.filter(
+      file => file.path !== 'models/chat.gguf',
+    );
+    const parsed = parseKnowledgeManifest(JSON.stringify(manifest));
+    expect(parsed.llm.remoteOptions?.[0].extraBody).toBeUndefined();
+    expect(parsed.llm.remoteOptions?.[1].extraBody).toEqual({
+      chat_template_kwargs: {enable_thinking: false},
+    });
+  });
+
+  it('rechaza extraBody que no es un objeto', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'vultr-test',
+      provider: 'openrouter',
+      remoteModelId: 'qwen3.5-4b-q4km',
+      remoteOptions: [
+        {
+          id: 'Qwen 3.5 4B',
+          remoteModelId: 'qwen3.5-4b-q4km',
+          extraBody: 'enable_thinking=false',
+        },
+      ],
+    } as unknown as typeof manifest.llm;
+    manifest.files = manifest.files.filter(
+      file => file.path !== 'models/chat.gguf',
+    );
+    expect(() => parseKnowledgeManifest(JSON.stringify(manifest))).toThrow(
+      'llm.remoteOptions[0].extraBody',
+    );
+  });
+
   it('deja llm.remoteOptions undefined cuando no viene declarado', () => {
     const manifest = validManifest();
     manifest.llm = {

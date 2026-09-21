@@ -1,5 +1,8 @@
 import {maskApiKey} from '../services/remote/apiKeyStorage';
-import {formatCreditInfo} from '../services/remote/openRouter';
+import {
+  formatCreditInfo,
+  generateRemoteCompletion,
+} from '../services/remote/openRouter';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,
@@ -56,5 +59,39 @@ describe('formatCreditInfo', () => {
         isFreeTier: true,
       }),
     ).toBe('Crédito: US$ 5.00 - usado US$ 2.00');
+  });
+});
+
+describe('generateRemoteCompletion', () => {
+  it('fusiona extraBody al final del body del POST', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{message: {content: 'hola'}}],
+        usage: {completion_tokens: 2},
+      }),
+    });
+    (globalThis as unknown as {fetch: unknown}).fetch = fetchMock;
+    const text = await generateRemoteCompletion(
+      {
+        apiKey: 'test-key',
+        model: 'qwen3.5-4b-q4km',
+        baseUrl: 'http://64.176.6.198:8001/v1',
+        extraBody: {chat_template_kwargs: {enable_thinking: false}},
+      },
+      [{role: 'user', content: 'hola'}],
+      () => {},
+    );
+    expect(text).toBe('hola');
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      {body: string},
+    ];
+    expect(url).toBe('http://64.176.6.198:8001/v1/chat/completions');
+    const body = JSON.parse(init.body) as Record<string, unknown>;
+    expect(body.model).toBe('qwen3.5-4b-q4km');
+    expect(body.stream).toBe(false);
+    expect(body.chat_template_kwargs).toEqual({enable_thinking: false});
   });
 });

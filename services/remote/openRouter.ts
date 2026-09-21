@@ -10,6 +10,11 @@ export interface OpenRouterConfig {
   baseUrl?: string;
   temperature?: number;
   maxTokens?: number;
+  /**
+   * Campos extra fusionados al final del body del POST (p.ej.
+   * {chat_template_kwargs: {enable_thinking: false}} en llama.cpp).
+   */
+  extraBody?: Record<string, unknown>;
 }
 
 interface OpenRouterResponse {
@@ -120,6 +125,7 @@ export async function generateRemoteCompletion(
         ...(config.maxTokens !== undefined
           ? {max_tokens: config.maxTokens}
           : {}),
+        ...config.extraBody,
       }),
       signal,
     });

@@ -21,6 +21,12 @@ export interface RemoteModelOption {
   id: string;
   remoteModelId: string;
   baseUrl?: string;
+  /**
+   * Campos extra que se fusionan al body de POST /chat/completions para esta
+   * opción (p.ej. {"chat_template_kwargs": {"enable_thinking": false}} para
+   * apagar el thinking de qwen en llama.cpp). Se aplican al final del body.
+   */
+  extraBody?: Record<string, unknown>;
 }
 
 export interface KnowledgeManifest {

@@ -313,6 +313,7 @@ export function useOfflineChat(rag: UseSQLiteRAGReturn) {
                   llmManifest.completionParams,
                   'max_tokens',
                 ),
+                extraBody: selectedOption?.extraBody,
               },
               buildRemoteMessages(messages, sources, promptRef.current),
               onPartial,

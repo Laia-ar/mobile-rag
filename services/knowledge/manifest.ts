@@ -97,6 +97,12 @@ function parseRemoteOptions(value: unknown): RemoteModelOption[] {
         `llm.remoteOptions[${index}].baseUrl`,
       );
     }
+    if (option.extraBody !== undefined) {
+      parsed.extraBody = requireRecord(
+        option.extraBody,
+        `llm.remoteOptions[${index}].extraBody`,
+      );
+    }
     return parsed;
   });
 }
