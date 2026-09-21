@@ -18,7 +18,9 @@ export interface OpenRouterConfig {
 }
 
 interface OpenRouterResponse {
-  choices?: Array<{message?: {content?: unknown}}>;
+  choices?: Array<{
+    message?: {content?: unknown; reasoning_content?: unknown};
+  }>;
   usage?: {completion_tokens?: number};
 }
 
@@ -165,6 +167,14 @@ export async function generateRemoteCompletion(
   console.log(
     `remote: respuesta recibida en ${elapsed.toFixed(1)}s, ${tokens ?? '?'} tokens`,
   );
+  if (text === '' && payload.choices?.[0]?.message?.reasoning_content) {
+    // Toda la generación se fue al bloque de "thinking" del modelo y content
+    // quedó vacío: falta chat_template_kwargs.enable_thinking=false en el
+    // manifiesto para este modelo (llama.cpp).
+    console.log(
+      'remote: WARN content vacío con reasoning_content — el modelo está generando thinking; declarar enable_thinking=false en extraBody',
+    );
+  }
 
   // Emisión en pedazos para simular streaming en la UI.
   const CHUNK_SIZE = 24;

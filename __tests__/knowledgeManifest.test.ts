@@ -135,7 +135,7 @@ describe('parseKnowledgeManifest', () => {
   it('propaga llm.baseUrl cuando viene declarada (servidor propio)', () => {
     const manifest = validManifest();
     manifest.llm = {
-      id: 'vultr-test',
+      id: 'server-test',
       provider: 'openrouter',
       remoteModelId: 'gemma-4-e2b-q4km',
       baseUrl: 'http://64.176.6.198:8002/v1',
@@ -173,7 +173,7 @@ describe('parseKnowledgeManifest', () => {
   it('propaga llm.remoteOptions con baseUrl propio por opción', () => {
     const manifest = validManifest();
     manifest.llm = {
-      id: 'vultr-test',
+      id: 'server-test',
       provider: 'openrouter',
       remoteModelId: 'gemma-4-e2b-q4km',
       baseUrl: 'http://64.176.6.198:8002/v1',
@@ -223,7 +223,7 @@ describe('parseKnowledgeManifest', () => {
   it('propaga extraBody por opción (p.ej. chat_template_kwargs de llama.cpp)', () => {
     const manifest = validManifest();
     manifest.llm = {
-      id: 'vultr-test',
+      id: 'server-test',
       provider: 'openrouter',
       remoteModelId: 'gemma-4-e2b-q4km',
       baseUrl: 'http://64.176.6.198:8002/v1',
@@ -250,7 +250,7 @@ describe('parseKnowledgeManifest', () => {
   it('rechaza extraBody que no es un objeto', () => {
     const manifest = validManifest();
     manifest.llm = {
-      id: 'vultr-test',
+      id: 'server-test',
       provider: 'openrouter',
       remoteModelId: 'qwen3.5-4b-q4km',
       remoteOptions: [

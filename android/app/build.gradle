@@ -144,9 +144,9 @@ android {
             applicationIdSuffix ".cloud"
             resValue "string", "app_name", "Palmera Cloud"
         }
-        vultr {
+        server {
             dimension "environment"
-            applicationIdSuffix ".vultr"
+            applicationIdSuffix ".server"
             resValue "string", "app_name", "Palmera Server"
         }
     }
