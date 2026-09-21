@@ -144,6 +144,11 @@ android {
             applicationIdSuffix ".cloud"
             resValue "string", "app_name", "Palmera Cloud"
         }
+        vultr {
+            dimension "environment"
+            applicationIdSuffix ".vultr"
+            resValue "string", "app_name", "Palmera Server"
+        }
     }
 }
 
@@ -217,7 +222,7 @@ tasks.register("validateOfflineKnowledge") {
 }
 
 tasks.configureEach { task ->
-    if (task.name == "preLocalReleaseBuild" || task.name == "preCloudReleaseBuild") {
+    if (task.name == "preLocalReleaseBuild" || task.name == "preCloudReleaseBuild" || task.name == "preVultrReleaseBuild") {
         task.dependsOn("validateOfflineKnowledge")
     }
 }

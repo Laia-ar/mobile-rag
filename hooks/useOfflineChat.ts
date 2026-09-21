@@ -244,6 +244,7 @@ export function useOfflineChat(rag: UseSQLiteRAGReturn) {
               {
                 apiKey: remoteApiKey!,
                 model: llmManifest.remoteModelId,
+                baseUrl: llmManifest.baseUrl,
                 temperature: numericCompletionParam(
                   llmManifest.completionParams,
                   'temperature',

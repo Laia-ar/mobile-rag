@@ -1,13 +1,14 @@
 #!/bin/bash
-# Uso: ./build-release.sh [local|cloud]
+# Uso: ./build-release.sh [local|cloud|vultr]
 # El paquete en android/app/src/main/assets/knowledge.current debe coincidir con el flavor:
-# local = LLM GGUF bundleado; cloud = manifest.llm.provider "openrouter" (sin GGUF).
+# local = LLM GGUF bundleado; cloud = provider "openrouter" (sin GGUF);
+# vultr = provider "openrouter" + llm.baseUrl apuntando al servidor propio.
 
 set -e
 
 FLAVOR="${1:-local}"
-[ "$FLAVOR" = "local" ] || [ "$FLAVOR" = "cloud" ] || {
-  echo "Flavor inválido: $FLAVOR (usar local|cloud)" >&2
+[ "$FLAVOR" = "local" ] || [ "$FLAVOR" = "cloud" ] || [ "$FLAVOR" = "vultr" ] || {
+  echo "Flavor inválido: $FLAVOR (usar local|cloud|vultr)" >&2
   exit 1
 }
 FLAVOR_CAP="$(tr '[:lower:]' '[:upper:]' <<< "${FLAVOR:0:1}")${FLAVOR:1}"
@@ -25,11 +26,14 @@ test -f "$MANIFEST" || {
 }
 
 IS_CLOUD=$(grep -c '"provider": "openrouter"' "$MANIFEST" || true)
-if [ "$FLAVOR" = "cloud" ] && [ "$IS_CLOUD" = "0" ]; then
+if { [ "$FLAVOR" = "cloud" ] || [ "$FLAVOR" = "vultr" ]; } && [ "$IS_CLOUD" = "0" ]; then
   echo "knowledge.current no es una variante cloud (sin provider openrouter)" >&2; exit 1
 fi
 if [ "$FLAVOR" = "local" ] && [ "$IS_CLOUD" != "0" ]; then
   echo "knowledge.current es una variante cloud; buildear con: $0 cloud" >&2; exit 1
+fi
+if [ "$FLAVOR" = "vultr" ] && ! grep -q '"baseUrl"' "$MANIFEST"; then
+  echo "knowledge.current no declara llm.baseUrl (servidor propio)" >&2; exit 1
 fi
 
 cd android

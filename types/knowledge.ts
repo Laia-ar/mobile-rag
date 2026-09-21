@@ -42,6 +42,12 @@ export interface KnowledgeManifest {
     /** ID del modelo remoto (p.ej. "anthropic/claude-sonnet-5"). Solo OpenRouter. */
     remoteModelId?: string;
     /**
+     * Base URL del endpoint OpenAI-compatible (sin barra final). Si no está,
+     * se usa https://openrouter.ai/api/v1. Permite apuntar a un servidor
+     * propio (p.ej. llama.cpp en Vultr: "http://IP:8002/v1").
+     */
+    baseUrl?: string;
+    /**
      * API key de OpenRouter embebida (override para builds internas). Si no
      * está, la app usa la key que el usuario guarda en Ajustes.
      */

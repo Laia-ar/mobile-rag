@@ -6,6 +6,8 @@ const OPENROUTER_KEY_URL = 'https://openrouter.ai/api/v1/key';
 export interface OpenRouterConfig {
   apiKey: string;
   model: string;
+  /** Base URL OpenAI-compatible; default OpenRouter. P.ej. "http://IP:8002/v1". */
+  baseUrl?: string;
   temperature?: number;
   maxTokens?: number;
 }
@@ -96,10 +98,13 @@ export async function generateRemoteCompletion(
 ): Promise<string> {
   console.log(`remote: request enviado (model=${config.model})`);
   const startTime = Date.now();
+  const chatUrl = config.baseUrl
+    ? `${config.baseUrl.replace(/\/+$/, '')}/chat/completions`
+    : OPENROUTER_CHAT_URL;
 
   let payload: OpenRouterResponse;
   try {
-    const response = await fetch(OPENROUTER_CHAT_URL, {
+    const response = await fetch(chatUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
