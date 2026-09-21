@@ -50,6 +50,7 @@ export function ChatbotScreen({
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const canSend =
     input.trim().length > 0 && chat.status === 'ready' && !chat.missingApiKey;
+  const isGenerating = chat.status === 'generating';
 
   const handleSend = async () => {
     const question = input.trim();
@@ -190,6 +191,35 @@ export function ChatbotScreen({
           ) : null}
         </ScrollView>
 
+        {chat.remoteOptions.length > 1 ? (
+          <View style={styles.modelSelector}>
+            {chat.remoteOptions.map(option => {
+              const isActive = option.id === chat.selectedRemoteOptionId;
+              return (
+                <Pressable
+                  key={option.id}
+                  accessibilityRole="button"
+                  accessibilityState={{selected: isActive, disabled: isGenerating}}
+                  disabled={isGenerating}
+                  onPress={() => chat.selectRemoteOption(option.id)}
+                  style={[
+                    styles.modelChip,
+                    isActive && styles.modelChipActive,
+                    isGenerating && styles.modelChipDisabled,
+                  ]}>
+                  <Text
+                    style={[
+                      styles.modelChipText,
+                      isActive && styles.modelChipTextActive,
+                    ]}>
+                    {option.id}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
         <View style={styles.composer}>
           <TextInput
             accessibilityLabel="Escriba aquí su consulta"
@@ -261,6 +291,12 @@ const styles = StyleSheet.create({
   errorText: {marginTop: 5, fontSize: 13, lineHeight: 19, color: '#7F1D1D'},
   apiKeyButton: {alignSelf: 'flex-start', marginTop: 12, paddingHorizontal: 13, paddingVertical: 9, borderRadius: 8, backgroundColor: '#F32735'},
   apiKeyButtonText: {fontSize: 14, fontWeight: '600', color: '#FFFFFF'},
+  modelSelector: {flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingTop: 10, backgroundColor: '#FFFFFF'},
+  modelChip: {paddingHorizontal: 13, paddingVertical: 8, borderRadius: 16, backgroundColor: '#F5F6F9'},
+  modelChipActive: {backgroundColor: '#F32735'},
+  modelChipDisabled: {opacity: 0.4},
+  modelChipText: {fontSize: 13, fontWeight: '600', color: '#404040'},
+  modelChipTextActive: {color: '#FFFFFF'},
   composer: {flexDirection: 'row', alignItems: 'flex-end', gap: 10, padding: 12, borderTopWidth: 1, borderTopColor: '#E5E5E5', backgroundColor: '#FFFFFF'},
   input: {flex: 1, minHeight: 46, maxHeight: 120, paddingHorizontal: 14, paddingVertical: 11, borderWidth: 1, borderColor: '#D4D4D4', borderRadius: 12, color: '#262626', fontSize: 15},
   sendButton: {width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#F32735'},

@@ -12,6 +12,17 @@ export interface KnowledgeFileDefinition {
   sizeBytes?: number;
 }
 
+/**
+ * Opción de modelo remoto elegible por el usuario. id es la etiqueta visible
+ * en la app (p.ej. "Gemma 4 E2B"); baseUrl es opcional y permite que cada
+ * opción apunte a un endpoint distinto (p.ej. dos puertos del mismo servidor).
+ */
+export interface RemoteModelOption {
+  id: string;
+  remoteModelId: string;
+  baseUrl?: string;
+}
+
 export interface KnowledgeManifest {
   schemaVersion: 1;
   packageVersion: string;
@@ -47,6 +58,13 @@ export interface KnowledgeManifest {
      * propio (p.ej. llama.cpp en Vultr: "http://IP:8002/v1").
      */
     baseUrl?: string;
+    /**
+     * Opciones de modelo remoto para que el usuario elija desde la app (solo
+     * provider "openrouter"). Cada opción puede sobreescribir baseUrl; si no
+     * lo hace, se usa llm.baseUrl. Sin remoteOptions se usa siempre
+     * llm.remoteModelId (comportamiento por defecto).
+     */
+    remoteOptions?: RemoteModelOption[];
     /**
      * API key de OpenRouter embebida (override para builds internas). Si no
      * está, la app usa la key que el usuario guarda en Ajustes.

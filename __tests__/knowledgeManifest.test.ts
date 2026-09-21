@@ -169,4 +169,133 @@ describe('parseKnowledgeManifest', () => {
       'llm.modelPath',
     );
   });
+
+  it('propaga llm.remoteOptions con baseUrl propio por opción', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'vultr-test',
+      provider: 'openrouter',
+      remoteModelId: 'gemma-4-e2b-q4km',
+      baseUrl: 'http://64.176.6.198:8002/v1',
+      remoteOptions: [
+        {
+          id: 'Gemma 4 E2B',
+          remoteModelId: 'gemma-4-e2b-q4km',
+          baseUrl: 'http://64.176.6.198:8002/v1',
+        },
+        {
+          id: 'Qwen 3.5 4B',
+          remoteModelId: 'qwen3.5-4b-q4km',
+          baseUrl: 'http://64.176.6.198:8001/v1',
+        },
+      ],
+    } as unknown as typeof manifest.llm;
+    manifest.files = manifest.files.filter(
+      file => file.path !== 'models/chat.gguf',
+    );
+    const parsed = parseKnowledgeManifest(JSON.stringify(manifest));
+    expect(parsed.llm.remoteOptions).toHaveLength(2);
+    expect(parsed.llm.remoteOptions?.[0]).toEqual({
+      id: 'Gemma 4 E2B',
+      remoteModelId: 'gemma-4-e2b-q4km',
+      baseUrl: 'http://64.176.6.198:8002/v1',
+    });
+    expect(parsed.llm.remoteOptions?.[1].baseUrl).toBe(
+      'http://64.176.6.198:8001/v1',
+    );
+  });
+
+  it('acepta remoteOptions sin baseUrl (hereda llm.baseUrl)', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'remote-test',
+      provider: 'openrouter',
+      remoteModelId: 'x-ai/grok-4.20',
+      remoteOptions: [{id: 'Grok', remoteModelId: 'x-ai/grok-4.20'}],
+    } as unknown as typeof manifest.llm;
+    manifest.files = manifest.files.filter(
+      file => file.path !== 'models/chat.gguf',
+    );
+    const parsed = parseKnowledgeManifest(JSON.stringify(manifest));
+    expect(parsed.llm.remoteOptions?.[0].baseUrl).toBeUndefined();
+  });
+
+  it('deja llm.remoteOptions undefined cuando no viene declarado', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'remote-test',
+      provider: 'openrouter',
+      remoteModelId: 'x-ai/grok-4.20',
+    } as unknown as typeof manifest.llm;
+    manifest.files = manifest.files.filter(
+      file => file.path !== 'models/chat.gguf',
+    );
+    const parsed = parseKnowledgeManifest(JSON.stringify(manifest));
+    expect(parsed.llm.remoteOptions).toBeUndefined();
+  });
+
+  it('rechaza remoteOptions vacío', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'remote-test',
+      provider: 'openrouter',
+      remoteModelId: 'x-ai/grok-4.20',
+      remoteOptions: [],
+    } as unknown as typeof manifest.llm;
+    expect(() => parseKnowledgeManifest(JSON.stringify(manifest))).toThrow(
+      'llm.remoteOptions',
+    );
+  });
+
+  it('rechaza una opción remota sin id', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'remote-test',
+      provider: 'openrouter',
+      remoteModelId: 'x-ai/grok-4.20',
+      remoteOptions: [{remoteModelId: 'x-ai/grok-4.20'}],
+    } as unknown as typeof manifest.llm;
+    expect(() => parseKnowledgeManifest(JSON.stringify(manifest))).toThrow(
+      'llm.remoteOptions[0].id',
+    );
+  });
+
+  it('rechaza una opción remota sin remoteModelId', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'remote-test',
+      provider: 'openrouter',
+      remoteModelId: 'x-ai/grok-4.20',
+      remoteOptions: [{id: 'Grok'}],
+    } as unknown as typeof manifest.llm;
+    expect(() => parseKnowledgeManifest(JSON.stringify(manifest))).toThrow(
+      'llm.remoteOptions[0].remoteModelId',
+    );
+  });
+
+  it('rechaza remoteOptions duplicadas por id', () => {
+    const manifest = validManifest();
+    manifest.llm = {
+      id: 'remote-test',
+      provider: 'openrouter',
+      remoteModelId: 'x-ai/grok-4.20',
+      remoteOptions: [
+        {id: 'Grok', remoteModelId: 'x-ai/grok-4.20'},
+        {id: 'Grok', remoteModelId: 'x-ai/grok-4.20'},
+      ],
+    } as unknown as typeof manifest.llm;
+    expect(() => parseKnowledgeManifest(JSON.stringify(manifest))).toThrow(
+      'duplicada',
+    );
+  });
+
+  it('rechaza remoteOptions con provider local', () => {
+    const manifest = validManifest();
+    (manifest.llm as Record<string, unknown>).remoteOptions = [
+      {id: 'Local', remoteModelId: 'local-model'},
+    ];
+    expect(() => parseKnowledgeManifest(JSON.stringify(manifest))).toThrow(
+      'llm.remoteOptions',
+    );
+  });
 });

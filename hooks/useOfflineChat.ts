@@ -5,6 +5,10 @@ import {buildRemoteMessages, ChatLine, useLlamaEngine} from './useLlamaEngine';
 import {UseSQLiteRAGReturn} from './useRagEngine';
 import {getStoredOpenRouterApiKey} from '../services/remote/apiKeyStorage';
 import {
+  getSelectedRemoteModelId,
+  saveSelectedRemoteModelId,
+} from '../services/remote/modelSelection';
+import {
   generateRemoteCompletion,
   OpenRouterKeyInvalidError,
 } from '../services/remote/openRouter';
@@ -78,11 +82,59 @@ export function useOfflineChat(rag: UseSQLiteRAGReturn) {
   const [answer, setAnswer] = useState<OfflineChatAnswer | null>(null);
   // null = todavía no se verificó; en modo local siempre es true.
   const [hasRemoteApiKey, setHasRemoteApiKey] = useState<boolean | null>(null);
+  // Opción de modelo remoto elegida por el usuario (id del chip); null = aún
+  // no se cargó de AsyncStorage o no hay selección guardada.
+  const [selectedRemoteOptionId, setSelectedRemoteOptionId] = useState<
+    string | null
+  >(null);
   const promptRef = useRef<string | undefined>(undefined);
   const historyRef = useRef<ChatLine[]>([]);
   const remoteAbortRef = useRef<AbortController | null>(null);
   const initializedVersionRef = useRef<string | null>(null);
   const initializingVersionRef = useRef<string | null>(null);
+
+  // Opciones de modelo remoto declaradas por el paquete (vacío en modo local
+  // o cuando el manifest no las declara).
+  const remoteOptions = useMemo(
+    () => (isRemote ? (manifest?.llm.remoteOptions ?? []) : []),
+    [isRemote, manifest],
+  );
+
+  // Carga la selección guardada cuando el paquete remoto queda disponible.
+  useEffect(() => {
+    if (!isRemote) {
+      setSelectedRemoteOptionId(null);
+      return;
+    }
+    let cancelled = false;
+    getSelectedRemoteModelId().then(storedId => {
+      if (!cancelled) {
+        setSelectedRemoteOptionId(storedId);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isRemote, manifest]);
+
+  // Selección efectiva: la guardada si coincide con una opción del manifest;
+  // si no, la opción que corresponde al modelo por defecto (llm.remoteModelId)
+  // para que la UI marque el chip correcto sin selección explícita.
+  const effectiveSelectedOptionId = useMemo(() => {
+    if (remoteOptions.length === 0) {
+      return null;
+    }
+    if (
+      selectedRemoteOptionId &&
+      remoteOptions.some(option => option.id === selectedRemoteOptionId)
+    ) {
+      return selectedRemoteOptionId;
+    }
+    const defaultOption = remoteOptions.find(
+      option => option.remoteModelId === manifest?.llm.remoteModelId,
+    );
+    return defaultOption?.id ?? null;
+  }, [remoteOptions, selectedRemoteOptionId, manifest]);
 
   useEffect(() => {
     let cancelled = false;
@@ -234,17 +286,25 @@ export function useOfflineChat(rag: UseSQLiteRAGReturn) {
         let text: string;
         if (isRemote) {
           const llmManifest = manifest.llm;
-          if (!llmManifest.remoteModelId) {
+          // Si el usuario eligió una opción válida, se usa su modelo y su
+          // baseUrl (con fallback a llm.baseUrl); si no, los defaults del llm.
+          const selectedOption = remoteOptions.find(
+            option => option.id === effectiveSelectedOptionId,
+          );
+          const remoteModel =
+            selectedOption?.remoteModelId ?? llmManifest.remoteModelId;
+          if (!remoteModel) {
             throw new Error('El paquete remoto no declara llm.remoteModelId.');
           }
+          const remoteBaseUrl = selectedOption?.baseUrl ?? llmManifest.baseUrl;
           const controller = new AbortController();
           remoteAbortRef.current = controller;
           try {
             text = await generateRemoteCompletion(
               {
                 apiKey: remoteApiKey!,
-                model: llmManifest.remoteModelId,
-                baseUrl: llmManifest.baseUrl,
+                model: remoteModel,
+                baseUrl: remoteBaseUrl,
                 temperature: numericCompletionParam(
                   llmManifest.completionParams,
                   'temperature',
@@ -281,9 +341,11 @@ export function useOfflineChat(rag: UseSQLiteRAGReturn) {
         throw nextError;
       }
     }, [
+      effectiveSelectedOptionId,
       generate,
       isRemote,
       manifest,
+      remoteOptions,
       similaritySearch,
       status,
       vectorize,
@@ -308,5 +370,29 @@ export function useOfflineChat(rag: UseSQLiteRAGReturn) {
 
   const missingApiKey = isRemote === true && hasRemoteApiKey === false;
 
-  return {status, error, answer, missingApiKey, refreshApiKey, send, clear, stop};
+  // Persiste la opción elegida y actualiza el estado (la UI la refleja en el
+  // chip activo de inmediato, aunque el guardado falle).
+  const selectRemoteOption = useCallback((id: string) => {
+    setSelectedRemoteOptionId(id);
+    saveSelectedRemoteModelId(id).catch(storageError =>
+      console.warn(
+        'remote: no se pudo guardar la selección de modelo',
+        storageError,
+      ),
+    );
+  }, []);
+
+  return {
+    status,
+    error,
+    answer,
+    missingApiKey,
+    refreshApiKey,
+    send,
+    clear,
+    stop,
+    remoteOptions,
+    selectedRemoteOptionId: effectiveSelectedOptionId,
+    selectRemoteOption,
+  };
 }

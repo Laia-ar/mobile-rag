@@ -2,6 +2,7 @@ import {
   CountryCode,
   KnowledgeFileDefinition,
   KnowledgeManifest,
+  RemoteModelOption,
 } from '../../types/knowledge';
 
 const COUNTRY_CODES: CountryCode[] = ['AR', 'BO'];
@@ -66,6 +67,35 @@ function parseHashes(value: unknown, field: string): string[] {
     const parsed = requireString(hash, `${field}[${index}]`).toLowerCase();
     if (!SHA256_PATTERN.test(parsed)) {
       throw new Error(`${field}[${index}] no es un SHA-256 válido.`);
+    }
+    return parsed;
+  });
+}
+
+function parseRemoteOptions(value: unknown): RemoteModelOption[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error('llm.remoteOptions debe ser una lista no vacía de opciones.');
+  }
+  const ids = new Set<string>();
+  return value.map((item, index) => {
+    const option = requireRecord(item, `llm.remoteOptions[${index}]`);
+    const id = requireString(option.id, `llm.remoteOptions[${index}].id`);
+    if (ids.has(id)) {
+      throw new Error(`Opción remota duplicada en llm.remoteOptions: ${id}`);
+    }
+    ids.add(id);
+    const parsed: RemoteModelOption = {
+      id,
+      remoteModelId: requireString(
+        option.remoteModelId,
+        `llm.remoteOptions[${index}].remoteModelId`,
+      ),
+    };
+    if (option.baseUrl !== undefined) {
+      parsed.baseUrl = requireString(
+        option.baseUrl,
+        `llm.remoteOptions[${index}].baseUrl`,
+      );
     }
     return parsed;
   });
@@ -162,6 +192,7 @@ export function parseKnowledgeManifest(raw: string): KnowledgeManifest {
   let llmRemoteModelId: string | undefined;
   let llmApiKey: string | undefined;
   let llmBaseUrl: string | undefined;
+  let llmRemoteOptions: RemoteModelOption[] | undefined;
   if (isRemoteLlm) {
     llmRemoteModelId = requireString(llm.remoteModelId, 'llm.remoteModelId');
     // apiKey es opcional: si no viene embebida, la app usa la key guardada
@@ -174,6 +205,15 @@ export function parseKnowledgeManifest(raw: string): KnowledgeManifest {
     if (llm.baseUrl !== undefined) {
       llmBaseUrl = requireString(llm.baseUrl, 'llm.baseUrl');
     }
+    // remoteOptions es opcional: lista de modelos remotos elegibles por el
+    // usuario (p.ej. dos modelos servidos en puertos distintos de un Vultr).
+    if (llm.remoteOptions !== undefined) {
+      llmRemoteOptions = parseRemoteOptions(llm.remoteOptions);
+    }
+  } else if (llm.remoteOptions !== undefined) {
+    throw new Error(
+      'llm.remoteOptions solo tiene sentido con provider "openrouter".',
+    );
   }
 
   const requiredPaths = [databasePath, documentsDirectory, embeddingModelPath];
@@ -273,6 +313,7 @@ export function parseKnowledgeManifest(raw: string): KnowledgeManifest {
       remoteModelId: llmRemoteModelId,
       apiKey: llmApiKey,
       baseUrl: llmBaseUrl,
+      remoteOptions: llmRemoteOptions,
       systemPromptPath:
         typeof llm.systemPromptPath === 'string'
           ? llm.systemPromptPath
