@@ -10,7 +10,9 @@
     "ios:prod": "react-native run-ios --scheme MyApp",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "test:unit": "jest --config jest.unit.config.js --runInBand",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@op-engineering/op-sqlite": "^16.2.0",

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- El flavor server habla HTTP con el servidor llama.cpp propio (64.176.6.198).
+     Cleartext solo para esa IP; el resto del tráfico sigue las reglas default. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">64.176.6.198</domain>
+    </domain-config>
+</network-security-config>

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "packageVersion": "2026.08.0",
+  "countries": ["AR", "BO"],
+  "corpus": {
+    "countryIds": {
+      "AR": "REEMPLAZAR_CON_CORPUS_ID_ARGENTINA",
+      "BO": "REEMPLAZAR_CON_CORPUS_ID_BOLIVIA"
+    },
+    "databasePath": "database/corpus.sqlite",
+    "documentsDirectory": "documents"
+  },
+  "embedding": {
+    "id": "second-state/All-MiniLM-L6-v2-Embedding-GGUF",
+    "modelPath": "models/all-MiniLM-L6-v2-ggml-model-f16.gguf",
+    "dimensions": 256,
+    "retrievalDimensions": 256,
+    "queryPrefix": "",
+    "normalize": true
+  },
+  "llm": {
+    "id": "unsloth/Qwen3.5-0.8B-GGUF",
+    "modelPath": "models/Qwen3.5-0.8B-Q4_K_M.gguf",
+    "systemPromptPath": "prompts/clinical-system.txt",
+    "contextParams": {"n_ctx": 4096, "n_gpu_layers": 0},
+    "completionParams": {
+      "temperature": 0.2,
+      "top_p": 0.9,
+      "top_k": 40,
+      "n_predict": 512
+    }
+  },
+  "access": {
+    "strategy": "disabled-for-development"
+  },
+  "files": [
+    {"path": "database/corpus.sqlite", "sha256": "REEMPLAZAR_SHA256"},
+    {"path": "models/all-MiniLM-L6-v2-ggml-model-f16.gguf", "sha256": "REEMPLAZAR_SHA256"},
+    {"path": "models/Qwen3.5-0.8B-Q4_K_M.gguf", "sha256": "REEMPLAZAR_SHA256"},
+    {"path": "prompts/clinical-system.txt", "sha256": "REEMPLAZAR_SHA256"},
+    {"path": "documents/REEMPLAZAR_DOCUMENTO.pdf", "sha256": "REEMPLAZAR_SHA256"}
+  ]
+}
