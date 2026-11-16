@@ -1,0 +1,252 @@
+/* Figma 371:453, 380:383, 380:419. Shared styling is limited to the welcome tour. */
+@media (min-width: 641px) {
+  .fh-welcome-desktop {
+    position: relative;
+  }
+
+  .fh-welcome-desktop .fh-sidebar {
+    position: relative;
+    width: 253px;
+    padding: 0;
+    border-right: 1px solid #e5e5e5;
+  }
+
+
+  .fh-welcome-desktop .fh-logo {
+    position: absolute;
+    left: 53px;
+    top: 94.243164px;
+    width: 144px;
+    height: auto;
+    display: block;
+    margin: 0;
+  }
+
+
+
+
+
+  .fh-welcome-desktop .fh-logo > img {
+    position: static;
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .fh-welcome-desktop .fh-nav {
+    position: absolute;
+    left: 39px;
+    top: 182px;
+    width: 192px;
+  }
+
+  .fh-welcome-desktop .fh-nav-button {
+    height: 40px;
+    flex-shrink: 0;
+    line-height: 16px;
+    color: #a1a1a1;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  .fh-welcome-desktop .fh-nav-button[aria-pressed='true'] {
+    color: #f32735;
+  }
+
+  .fh-welcome-desktop .fh-nav-button:nth-child(2),
+  .fh-welcome-desktop .fh-nav-button:nth-child(3) {
+    padding-left: 9px;
+  }
+
+  .fh-welcome-desktop .fh-nav-button:nth-child(2) .fh-nav-icon {
+    width: 23px;
+    height: 23px;
+    transform: translateY(0.5px);
+  }
+
+  .fh-welcome-desktop .fh-nav-button:nth-child(3) .fh-nav-icon,
+  .fh-welcome-desktop .fh-nav-button:nth-child(3) .fh-welcome-nav-label {
+    transform: translateY(1px);
+  }
+
+  .fh-welcome-desktop .fh-sidebar-logout {
+    position: absolute;
+    left: 53px;
+    bottom: 125px;
+    width: auto;
+    height: 18px;
+    min-height: 18px;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    line-height: 16px;
+  }
+
+  .fh-welcome-desktop .fh-main {
+    padding: 95px 0 32px 50px;
+  }
+
+  .fh-welcome-desktop .fh-heading h1 {
+    width: 176px;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 20px;
+    letter-spacing: 0;
+  }
+
+  .fh-welcome-desktop .fh-welcome-description {
+    min-height: 78px;
+    margin-top: 12px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 19px;
+    letter-spacing: 0;
+  }
+
+  .fh-welcome-desktop .fh-tour {
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.15);
+    height: 128px;
+    padding: 0;
+    font-family: 'FH Poppins', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0;
+    left: 264px;
+    top: 183px;
+    max-width: calc(100vw - 280px);
+  }
+
+  .fh-welcome-desktop .fh-tour h2 {
+    position: absolute;
+    left: 19px;
+    top: 17px;
+    width: 117px;
+    height: 15px;
+    padding: 0;
+  }
+
+  .fh-welcome-desktop .fh-tour p {
+    position: absolute;
+    left: 18px;
+    top: 40px;
+    width: 267px;
+    height: 28px;
+    margin: 0;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: -0.150390625px;
+  }
+
+  .fh-welcome-desktop .fh-tour .fh-tour-close {
+    right: 6px;
+  }
+
+  .fh-welcome-desktop .fh-tour footer {
+    position: absolute;
+    left: 19px;
+    top: 93px;
+    width: 262px;
+    height: 18px;
+    margin: 0;
+  }
+
+  .fh-welcome-desktop .fh-tour .fh-tour-dots {
+    position: absolute;
+    left: 0;
+    top: 6px;
+  }
+
+  .fh-welcome-desktop .fh-tour .fh-tour-next {
+    position: absolute;
+    left: 182px;
+    top: 0;
+    width: 80px;
+    height: 18px;
+    min-height: 18px;
+    padding: 0;
+    font-family: inherit;
+    line-height: 16px;
+    letter-spacing: 0;
+    text-decoration: none;
+  }
+
+  .fh-welcome-desktop .fh-tour .fh-tour-next-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 63px;
+    height: 15px;
+    text-decoration: underline;
+    text-underline-position: from-font;
+    text-decoration-thickness: from-font;
+  }
+
+  .fh-welcome-desktop .fh-tour .fh-tour-next > img {
+    position: absolute;
+    left: 63px;
+    top: 1px;
+  }
+
+  .fh-welcome-desktop .fh-nav-button {
+    position: relative;
+  }
+
+  .fh-welcome-desktop[data-onboarding='true'] .fh-nav-button[aria-pressed='true'] {
+    background: transparent;
+  }
+
+  .fh-welcome-desktop .fh-nav-button[aria-pressed='true']::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 192px;
+    height: 40px;
+    border-radius: 4px;
+    background: #fee5e7;
+  }
+
+  .fh-welcome-desktop .fh-nav-button:nth-child(n + 2)[aria-pressed='true']::before {
+    top: 1px;
+  }
+
+  .fh-welcome-desktop .fh-nav-icon,
+  .fh-welcome-desktop .fh-welcome-nav-label {
+    position: relative;
+  }
+
+  .fh-welcome-desktop .fh-nav-button:nth-child(1) .fh-welcome-nav-label {
+    width: 38px;
+  }
+
+  .fh-welcome-desktop .fh-nav-button:nth-child(2) .fh-welcome-nav-label {
+    width: 59px;
+  }
+
+  .fh-welcome-desktop .fh-nav-button:nth-child(3) .fh-welcome-nav-label {
+    width: 32px;
+  }
+
+  .fh-welcome-desktop .fh-tour-step-1 {
+    top: 232px;
+  }
+
+  .fh-welcome-desktop .fh-tour-step-2 {
+    top: 280px;
+  }
+
+  .fh-welcome-desktop .fh-tour-step-1 h2 {
+    width: 139px;
+  }
+
+  .fh-welcome-desktop .fh-tour-step-2 h2 {
+    width: 197px;
+  }
+
+  .fh-welcome-desktop .fh-tour-step-1 .fh-tour-pointer {
+    left: -17px;
+  }
+
+  .fh-welcome-desktop .fh-tour-step-2 .fh-tour-dots > img {
+    transform: scaleX(-1);
+  }
+}

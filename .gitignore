@@ -93,3 +93,16 @@ yarn-error.log
 /*.gguf
 /releases/
 /results/
+
+# Mobile v2 generated frontend and local build configuration
+/web/dist/
+/android/app/src/main/assets/mobile-web/
+/android/app/src/main/assets/mobile-config.json
+/web/test-results/
+/web/playwright-report/
+
+/android/mobile-v2-build.log
+/mobile-v2.local.json
+
+# APKs are local artifacts, not source files
+*.apk

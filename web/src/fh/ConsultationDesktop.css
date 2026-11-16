@@ -1,0 +1,309 @@
+/* Shared desktop shell and Consulta cards. */
+@media (min-width: 641px) {
+  .fh-consultation-desktop {
+    position: relative;
+  }
+  .fh-consultation-desktop .fh-sidebar {
+    position: relative;
+    width: 253px;
+    padding: 0;
+    border-right: 1px solid #e5e5e5;
+  }
+  .fh-consultation-desktop .fh-logo {
+    position: absolute;
+    left: 53px;
+    top: 94.243164px;
+    width: 144px;
+    height: auto;
+    display: block;
+    margin: 0;
+  }
+
+
+  .fh-consultation-desktop .fh-logo > img {
+    position: static;
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .fh-consultation-desktop .fh-nav {
+    position: absolute;
+    left: 39px;
+    top: 182px;
+    width: 192px;
+  }
+  .fh-consultation-desktop .fh-nav-button {
+    position: relative;
+    height: 40px;
+    flex-shrink: 0;
+    color: #a1a1a1;
+    font-size: 13px !important;
+    font-weight: 400;
+    line-height: 16px;
+    letter-spacing: 0;
+  }
+  .fh-consultation-desktop .fh-nav-button[aria-pressed='true'] {
+    background: transparent;
+    color: #f32735;
+  }
+  .fh-consultation-desktop .fh-nav-button[aria-pressed='true']::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 1px;
+    width: 192px;
+    height: 40px;
+    border-radius: 4px;
+    background: #fee5e7;
+  }
+  .fh-consultation-desktop .fh-nav-icon,
+  .fh-consultation-desktop .fh-consultation-nav-label {
+    position: relative;
+  }
+  .fh-consultation-desktop .fh-nav-button:nth-child(2),
+  .fh-consultation-desktop .fh-nav-button:nth-child(3) {
+    padding-left: 9px;
+  }
+  .fh-consultation-desktop .fh-nav-button:nth-child(2) .fh-nav-icon {
+    width: 23px;
+    height: 23px;
+    transform: translateY(0.5px);
+  }
+  .fh-consultation-desktop .fh-nav-button:nth-child(3) .fh-nav-icon,
+  .fh-consultation-desktop .fh-nav-button:nth-child(3) .fh-consultation-nav-label {
+    transform: translateY(1px);
+  }
+  .fh-consultation-desktop .fh-nav-button:nth-child(1) .fh-consultation-nav-label { width: 38px; }
+  .fh-consultation-desktop .fh-nav-button:nth-child(2) .fh-consultation-nav-label { width: 59px; }
+  .fh-consultation-desktop .fh-nav-button:nth-child(3) .fh-consultation-nav-label { width: 32px; }
+  .fh-consultation-desktop .fh-sidebar-logout {
+    position: absolute;
+    left: 53px;
+    bottom: 125px;
+    width: auto;
+    height: 18px;
+    min-height: 18px;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 16px;
+  }
+  .fh-consultation-desktop .fh-main { padding: 95px 0 32px 50px; }
+  .fh-consultation-desktop .fh-heading h1 {
+    width: 176px;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 20px;
+    letter-spacing: 0;
+  }
+  .fh-consultation-desktop .fh-heading .fh-subtitle {
+    width: 400px;
+    max-width: 100%;
+    height: 18px;
+    margin-top: 12px;
+    color: #525252;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 16px;
+    letter-spacing: 0;
+  }
+  .fh-consultation-desktop .fh-scroll { padding: 45px 0 24px; }
+  .fh-consultation-desktop:has(.fh-home) .fh-main { padding-right: 50px; }
+  .fh-consultation-desktop:has(.fh-home) .fh-page { max-width: 1024px; }
+  .fh-consultation-desktop:has(.fh-home) .fh-nav-button[aria-pressed='true']::before {
+    background: #fee5e7;
+  }
+  .fh-consultation-desktop .fh-home {
+    width: 100%;
+    max-width: 1024px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 16px;
+    row-gap: 21px;
+  }
+  .fh-consultation-desktop .fh-card {
+    min-width: 0;
+    min-height: 209px;
+    padding: 20px;
+    border: 1px solid #efefef;
+    border-radius: 10px;
+  }
+  .fh-consultation-desktop .fh-card-main {
+    border: 0;
+    background: #f5f6f9;
+  }
+  .fh-consultation-desktop .fh-chat-icon {
+    position: absolute;
+    left: 26px;
+    top: 24px;
+    width: 39.967239px;
+    height: 30.319971px;
+    margin: 0;
+  }
+  .fh-consultation-desktop .fh-chat-icon img {
+    left: 2.8px;
+    top: 19.29px;
+  }
+  .fh-consultation-desktop .fh-card h2 {
+    margin: 62px 0 0;
+    padding: 0;
+    color: #171717;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 20px;
+    letter-spacing: -0.150390625px;
+  }
+  .fh-consultation-desktop .fh-card p {
+    margin: 8px 0 0;
+    color: #525252;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 17.5px;
+    letter-spacing: -0.3px;
+  }
+  .fh-consultation-desktop .fh-card-recommendations h2 { white-space: nowrap; }
+  .fh-consultation-desktop .fh-card-icon {
+    flex-shrink: 0;
+    margin-bottom: 0;
+    width: 40px;
+    height: 40px;
+  }
+  .fh-consultation-desktop .fh-card-external .fh-card-icon img {
+    position: static;
+  }
+  .fh-consultation-desktop .fh-card-external .fh-external-url {
+    margin: 8px 0 0;
+    color: #f32735;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 17.5px;
+    letter-spacing: -0.3px;
+    text-underline-position: from-font;
+    text-decoration-thickness: from-font;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1099px) {
+  .fh-consultation-desktop .fh-home { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .fh-home { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Figma 381:1035 is a raster reference; its notice omits the connectivity warning per Agustina. */
+.fh-modal-external {
+  position: fixed;
+  width: min(396px, calc(100% - 32px));
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  color: #404040;
+  background: #fff;
+  font-family: 'FH Albert Sans', sans-serif;
+  font-size: 14px;
+  line-height: 18px;
+}
+.fh-modal-external::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: none;
+}
+.fh-modal-external .fh-modal-inner { padding: 23px 19px 15px; }
+.fh-modal-external .fh-modal-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+}
+.fh-modal-external .fh-external-icon-badge {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #f2f2f2;
+}
+.fh-modal-external .fh-external-icon {
+  width: 18.8882px;
+  height: 18.8889px;
+  background: #404040;
+  mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+}
+.fh-modal-external .fh-modal-header h2 {
+  font-family: 'FH Poppins', sans-serif;
+  margin-top: 14px;
+  color: #171717;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+  letter-spacing: -0.15px;
+  text-align: center;
+}
+.fh-modal-external .fh-external-close {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+}
+.fh-modal-external .fh-external-close span {
+  width: 14px;
+  height: 14px;
+  background: #525252;
+  mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+}
+.fh-modal-external .fh-external-description {
+  margin-top: 8px;
+  color: #404040;
+  font-size: 14px;
+  letter-spacing: -0.1px;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: center;
+}
+.fh-modal-external .fh-external-description strong { font-weight: 700; }
+.fh-modal-external .fh-external-destination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  margin-top: 12px;
+  padding: 6px 8px;
+  border: 1px solid #ebebeb;
+  border-radius: 8px;
+  background: #f5f5f5;
+  color: #404040;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.fh-modal-external .fh-external-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 168px);
+  gap: 8px;
+  margin-top: 14px;
+}
+.fh-modal-external .fh-external-actions .fh-button {
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  color: #000;
+  background: #fff;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px;
+}
+.fh-modal-external .fh-external-actions .fh-button-primary {
+  border-color: #df3f3f;
+  background: #df3f3f;
+  color: #fff;
+}

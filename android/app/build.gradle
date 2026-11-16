@@ -226,3 +226,29 @@ tasks.configureEach { task ->
         task.dependsOn("validateOfflineKnowledge")
     }
 }
+
+
+// Generate the exact bundled frontend before Android consumes its assets.
+def mobileWebRoot = rootProject.projectDir.parentFile
+tasks.register("prepareMobileWeb", Exec) {
+    group = "build"
+    description = "Compila la interfaz de staging para ejecutarla offline en la APK."
+    workingDir mobileWebRoot
+    inputs.files(fileTree(new File(mobileWebRoot, "web")) {
+        include "src/**", "public/**", "*.json", "*.js", "*.ts", "index.html", "pnpm-lock.yaml"
+        exclude "node_modules/**", "dist/**", "test-results/**"
+    })
+    inputs.file(new File(mobileWebRoot, "shared/mobileProtocol.ts"))
+    inputs.file(new File(mobileWebRoot, "scripts/package-mobile-web.mjs"))
+    inputs.file(new File(mobileWebRoot, "scripts/mobile-build-config.mjs"))
+    inputs.file(new File(mobileWebRoot, "mobile-v2.local.json")).optional()
+    inputs.property("backendUrl", providers.environmentVariable("PALMERA_BACKEND_URL").getOrElse(""))
+    outputs.file(file("src/main/assets/mobile-web/index.html"))
+    outputs.file(file("src/main/assets/mobile-config.json"))
+    if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+        commandLine "cmd", "/c", "pnpm", "web:build"
+    } else {
+        commandLine "pnpm", "web:build"
+    }
+}
+tasks.named("preBuild").configure { dependsOn("prepareMobileWeb") }

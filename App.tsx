@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { CountrySelectorScreen } from './components/CountrySelectorScreen';
+import { MobileApp } from './components/MobileApp';
 
 function App() {
   return (
@@ -13,7 +13,7 @@ function App() {
 function AppContent() {
   return (
     <View style={styles.container}>
-      <CountrySelectorScreen />
+      <MobileApp />
     </View>
   );
 }
