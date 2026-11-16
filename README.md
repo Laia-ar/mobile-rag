@@ -1,93 +1,87 @@
-# mobile-rag
-React Native + Rag + Chat
-=======
+# InfectoAssist Mobile
 
-# Primera prueba de concepto.
+Aplicación React Native de consulta clínica RAG que funciona completamente offline en Android. La UI, SQLite, sqlite-vec, los modelos GGUF y los PDFs se ejecutan dentro del dispositivo.
 
-Esta iniciado usando un template de react native.
+## Estado
 
-Luego se agrego una UI simple de chat la cual tiene interaccion 
-con un LLM que se puede descargar.
+El código productivo ya no consume datos mock. El runtime espera un paquete privado y versionado en:
 
-![latest screenshot of the app](./__screenshot.png)
-
-
-Proximos pasos:
- * agregar sqlite (https://github.com/sqliteai/sqlite-vector) 
- * agregar settings para tomar base de datos y apuntar modelos aprobados
- * probar modelos y fuentes de datos para calificar la respuesta
- * mas documentacion sobre instalacion local, distribucion y como modificar el software
-
-## Para probar en Android
-
-1) Clonar el repositorio (requiere git)
-2) Descargar dependencias (require pnpm, gradle, y un SDK de android)
-3) Enchufar un telefono por USB en modo Dev activado
-4) Iniciar dev (pnpm start) y instalar la app en el telefono (pnpm run android)
-
-## Crear virtual device
-
-1) Obtener Android SDK y CommandLineTools
-2) source environment
-3) Crear un descargar imagen: `sdkmanager "system-images;android-33;google_apis;x86_64"`
-4) Crear un device: `avdmanager create avd -n Test_Device -k "system-images;android-33;google_apis;x86_64" -p $ANDROID_AVD_HOME`
-5) Listar devices: `emulator -list-avds`
-6) Usar un device: `emulator -avd Test_Device`
-
-Comandos comunes:
-List running emulators: `adb devices`
-Install an app: `adb install pandroid/app/build/outputs/apk/release/app-release.apk`
-Shell: `adb shell`
-Shut down: `adb emu kill`
-Stop app: `adb shell am force-stop ar.laia.palmera.dev`
-
-## Para probar en iOS
-
-En curso
-
-## Para probar las consultas
-
-```
-$ ./test_knowledge.sh "¿Qué es la PrEP y quién debería considerar tomarla?"
-Documento: 2025-06_Recomendaciones de diagnóstico y tratamiento de las Infecciones de Transmisión Sexual.pdf
-
-Documento: Guia_Uso_de_PrEP_como_parte_estrategia_prevencion_combinada.pdf
-
-Documento: Municipios_Genero_y_territorio_08_dig.pdf
-
+```text
+android/app/src/main/assets/knowledge.current/
+├── manifest.json
+├── database/corpus.sqlite
+├── documents/AR/*.pdf
+├── documents/BO/*.pdf
+├── models/all-MiniLM-L6-v2-ggml-model-f16.gguf
+├── models/Qwen3.5-0.8B-Q4_K_M.gguf
+└── prompts/clinical-system.txt
 ```
 
-Es necesario tener instalado SQLite, SQLite-vec, Llama.cpp y jq
+El paquete está ignorado por Git. El contrato de ejemplo está en `config/knowledge-manifest.example.json` y la guía completa en `docs/GUIA-INTEGRACION-Y-APK-OFFLINE-v0.md`.
 
-Ejemplo de prueba:
+El manifiesto define dinámicamente el corpus de cada país, paths, dimensiones, parámetros de inferencia, hashes de acceso y checksums. No se versionan códigos reales, DBs, PDFs, modelos ni credenciales.
 
-```
-$ ./test_knowledge.sh 'que se dice sobre el precio de servicio de salud a personas afectadas por el VIH?'
-Documento: Guia de atencion del VIH en el primer nivel.pdf 0.736748754978179931
-==============
-el resto de los servicios de salud, cuando:
-============
-Documento: Guia_Uso_de_PrEP_como_parte_estrategia_prevencion_combinada.pdf 0.782974481582641601
-==============
-mentada al VIH y las ITS de algunas poblaciones, incluir los determinantes sociales 
-de la salud en el proceso de gestión y atención, y reducir las barreras en el acceso a 
-los recursos y servicios de salud.
-La implementación de la prevención combinada es un desafío que precisa de la 
-articulación de los servicios de salud de centros de salud y hospitales, en conjunto 
-con los espacios de toma de decisión y las organizaciones de la sociedad civil para 
-posicionar una respuesta centrada en la comunidad.
-============
-Documento: algoritmos_vih_sifilis_hepatitis_b_y_chagas_2025_27052025.pdf 0.788639247417449951
-==============
-to de infección por VIH sin exponer juicios de valor ni brindar la 
-información desde la propia creencia o conveniencia.
-	
-■Para promover la autonomía en las decisiones sobre la lactan-
-cia, sin estigma, discriminación, ni violencia se recomienda lle-
-var adelante un Proceso de decisiones compartidas. Constituye 
-uno de los elementos centrales del abordaje de servicios de salud 
-centrado en las personas, basado en evidencia científica y que 
-toma en cuenta el escenario particular de los servicios de salud
-============
+El paquete local se puede regenerar con `scripts/prepare-offline-package.ps1`. Los IDs de corpus se pasan como parámetros: no quedan hardcodeados en el código. Para pruebas internas sin IDs asignados, el manifiesto admite `disabled-for-development`; `prodRelease` rechaza ese modo y exige allowlists reales.
+
+## Flujo offline
+
+```text
+manifest + archivos
+        ↓ validación SHA-256
+almacenamiento persistente de la app
+        ↓
+pregunta → embedding GGUF → sqlite-vec + FTS5 → chunks
+        → LLM GGUF → respuesta + fuentes
+        → PDF nativo en la página recuperada
 ```
 
+Las guías completas y los snapshots de fragmentos guardados persisten por separado en AsyncStorage.
+
+## Validación estática
+
+Con dependencias ya instaladas:
+
+```bash
+./node_modules/.bin/tsc --noEmit
+./node_modules/.bin/eslint components hooks services types App.tsx --ext .ts,.tsx
+npm run test:unit
+```
+
+No hace falta iniciar Metro, un emulador ni ADB para estas verificaciones.
+
+## Desarrollo Android
+
+```bash
+pnpm start
+pnpm run android:dev
+```
+
+Estos comandos requieren Android SDK y un dispositivo/emulador configurado. El equipo ejecuta manualmente las pruebas de runtime.
+
+## APK release offline
+
+Una vez colocado y validado `knowledge.current` y configurada la firma fuera del código:
+
+```bash
+./build-release.sh
+```
+
+El build Android de este checkout requiere JDK 17. Definí `JAVA_HOME` a un JDK 17 antes de ejecutar el script.
+
+El script ejecuta `validateOfflineKnowledge` y `assembleProdRelease`. La salida queda en:
+
+```text
+android/app/build/outputs/apk/prod/release/
+```
+
+El build falla si falta el manifiesto, un archivo declarado, un hash de acceso para un país incluido o un checksum válido.
+
+## Seguridad
+
+- Los IDs se normalizan y se comparan localmente contra hashes SHA-256 por país.
+- Los hashes evitan texto plano, pero los códigos cortos pueden ser vulnerables a fuerza bruta; una versión posterior debería usar credenciales firmadas con vencimiento.
+- `TestingEventReceiver` solo está disponible en builds debug.
+- El release no fuerza `android:debuggable`.
+- No usar `git add -f` para incluir `knowledge.current`, keystores o `.env`.
+
+Nota: este checkout contiene material de firma histórico ya trackeado. No fue eliminado ni rotado automáticamente; requiere una decisión explícita del responsable y rotación si alguna credencial estuvo expuesta.

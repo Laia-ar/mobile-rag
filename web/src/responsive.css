@@ -1,0 +1,367 @@
+/* Se adapta el desktop existente. Figma Android solo aporta la referencia
+   de viewport 360 × 800; los cortes dependen del espacio del contenido. */
+.login-desktop__content {
+  display: contents;
+}
+
+.fh-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-bottom: 0.75em;
+}
+.fh-table-scroll table {
+  margin-bottom: 0;
+}
+.fh-answer,
+.fh-markdown,
+.fh-markdown pre {
+  min-width: 0;
+  max-width: 100%;
+}
+.fh-source-chip,
+.fh-source-row strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1099px), (max-height: 850px) {
+  /* El registro pasa a flujo normal: los errores y el texto ampliado
+     desplazan el contenido en lugar de superponer capas absolutas. */
+  .login-desktop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100dvh;
+    padding-top: max(32px, env(safe-area-inset-top));
+  }
+  .login-desktop__frame,
+  .login-desktop__panel {
+    display: none;
+  }
+  .login-desktop__brand {
+    position: static;
+    width: clamp(185px, 25vw, 231px);
+    height: auto;
+    transform: none;
+  }
+  .login-desktop__description {
+    position: static;
+    height: auto;
+    max-width: calc(100% - 40px);
+    margin-top: 24px;
+    padding: 0;
+    transform: none;
+    font-size: 16px;
+    line-height: 24px;
+  }
+  .login-desktop__content {
+    display: block;
+    flex: 1;
+    width: 100%;
+    margin-top: 32px;
+    padding: 32px 24px max(32px, env(safe-area-inset-bottom));
+    border-radius: 32px 32px 0 0;
+    background: #fff;
+  }
+  .login-desktop__title {
+    position: static;
+    width: auto;
+    max-width: 100%;
+    transform: none;
+    line-height: 28px;
+  }
+  .login-desktop__form {
+    position: static;
+    width: min(474px, 100%);
+    margin: 28px auto 0;
+    padding: 0;
+    transform: none;
+  }
+  .login-desktop__field label {
+    width: auto;
+    height: auto;
+    min-height: 20px;
+    line-height: 20px;
+  }
+  .login-desktop__control {
+    font-size: 16px;
+  }
+  .login-desktop__required {
+    left: auto;
+    width: auto;
+    height: auto;
+  }
+  .login-desktop__submit {
+    width: 100%;
+    height: auto;
+    min-height: 48px;
+    margin-top: 32px;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 1099px), (max-height: 600px) {
+  /* Especificidad compartida para sustituir la geometría fija de cada
+     pantalla desktop sin duplicar sus componentes ni recursos gráficos. */
+  .fh-workspace.fh-workspace .fh-sidebar {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    width: 216px;
+    height: 100dvh;
+    padding: clamp(16px, 6dvh, 64px) 20px 24px;
+    overflow-y: auto;
+  }
+  .fh-workspace.fh-workspace .fh-logo {
+    position: static;
+    display: flex;
+    width: 144px;
+    max-width: 100%;
+    height: auto;
+    margin: 0 0 40px;
+  }
+  .fh-workspace.fh-workspace .fh-logo > img {
+    position: static;
+  }
+  .fh-workspace.fh-workspace .fh-nav {
+    position: static;
+    width: 100%;
+  }
+  .fh-workspace.fh-workspace .fh-nav-button {
+    height: auto;
+    min-height: 44px;
+  }
+  .fh-workspace.fh-workspace .fh-nav-button[aria-pressed='true']::before {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .fh-workspace.fh-workspace .fh-sidebar-logout {
+    position: static;
+    width: auto;
+    height: auto;
+    min-height: 44px;
+    margin: auto 0 0;
+    padding: 8px 10px;
+  }
+  .fh-workspace.fh-workspace .fh-main {
+    padding: 48px 24px 32px;
+  }
+  .fh-workspace .fh-heading-row {
+    height: auto;
+    align-items: center;
+  }
+  .fh-workspace .fh-heading h1 {
+    width: auto;
+    max-width: 100%;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+  .fh-workspace .fh-heading .fh-subtitle,
+  .fh-workspace .fh-welcome-description {
+    width: auto;
+    height: auto;
+    min-height: 0;
+    line-height: 1.5;
+  }
+  .fh-workspace .fh-scroll {
+    padding: 24px 0 16px;
+  }
+  .fh-workspace .fh-back {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    margin-left: -10px;
+  }
+  .fh-workspace .fh-back img { transform: scaleX(-1); }
+  .fh-workspace .fh-home {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 16px;
+  }
+  .fh-workspace .fh-card {
+    min-width: 0;
+    min-height: 190px;
+    padding: 20px;
+  }
+  .fh-workspace .fh-notice {
+    height: auto;
+    min-height: 0;
+  }
+  .fh-workspace .fh-notice button {
+    position: static;
+    width: auto;
+    min-height: 44px;
+    margin: 6px 0 0 auto;
+  }
+  .fh-workspace .fh-notice p {
+    white-space: normal;
+  }
+  .fh-workspace .fh-profile-editing {
+    margin-left: 0;
+    padding-top: 24px;
+  }
+  .fh-workspace .fh-recommendations {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+  }
+  .fh-workspace .fh-recommendation p {
+    white-space: normal;
+  }
+
+  .fh-workspace .fh-tour {
+    left: 228px;
+    top: clamp(16px, 132px, calc(100dvh - 220px));
+    width: 296px;
+    height: auto;
+    max-width: calc(100% - 244px);
+    max-height: calc(100dvh - 32px);
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .fh-workspace .fh-tour-step-1 { top: clamp(16px, 184px, calc(100dvh - 220px)); }
+  .fh-workspace .fh-tour-step-2 { top: clamp(16px, 236px, calc(100dvh - 220px)); }
+  .fh-workspace .fh-tour h2,
+  .fh-workspace .fh-tour p,
+  .fh-workspace .fh-tour footer,
+  .fh-workspace .fh-tour .fh-tour-dots,
+  .fh-workspace .fh-tour .fh-tour-next,
+  .fh-workspace .fh-tour .fh-tour-next-label,
+  .fh-workspace .fh-tour .fh-tour-next > img {
+    position: static;
+    width: auto;
+    height: auto;
+  }
+  .fh-workspace .fh-tour h2 { padding-right: 24px; }
+  .fh-workspace .fh-tour p { margin-top: 8px; line-height: 1.5; }
+  .fh-workspace .fh-tour footer { margin-top: 12px; }
+  .fh-workspace .fh-tour .fh-tour-next { min-height: 44px; }
+  .fh-workspace .fh-tour-close { right: 4px; top: 4px; min-width: 44px; min-height: 44px; }
+}
+
+@media (max-width: 767px) {
+  .terms-desktop {
+    padding: max(32px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom));
+  }
+  .terms-desktop__brand { width: 185px; height: auto; }
+  .terms-desktop__title { margin-top: 40px; font-size: 22px; line-height: 30px; }
+  .terms-desktop__copy { min-height: 0; margin-top: 24px; font-size: 16px; line-height: 24px; text-align: left; }
+  .terms-desktop__accept { width: 100%; margin-top: 32px; padding: 12px; }
+
+  .fh-workspace {
+    --fh-mobile-nav-height: 76px;
+    flex-direction: column;
+    padding-bottom: calc(var(--fh-mobile-nav-height) + env(safe-area-inset-bottom));
+  }
+  .fh-workspace.fh-workspace .fh-sidebar {
+    position: fixed;
+    z-index: 3;
+    inset: auto 0 0;
+    order: 2;
+    align-self: auto;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    height: auto;
+    min-height: calc(var(--fh-mobile-nav-height) + env(safe-area-inset-bottom));
+    padding: 4px max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
+    border-right: 0;
+    border-top: 1px solid #e5e5e5;
+    background: #fff;
+    overflow: visible;
+  }
+  .fh-workspace.fh-workspace .fh-logo { display: none; }
+  .fh-workspace.fh-workspace .fh-nav {
+    display: flex;
+    flex: 1;
+    flex-direction: row;
+    gap: 4px;
+    min-width: 0;
+  }
+  .fh-workspace.fh-workspace .fh-nav-button,
+  .fh-workspace.fh-workspace .fh-sidebar-logout {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    gap: 4px;
+    min-width: 0;
+    min-height: 64px;
+    padding: 6px 4px;
+    font-size: 11px !important;
+    line-height: 16px;
+    text-align: center;
+  }
+  .fh-workspace.fh-workspace .fh-sidebar-logout {
+    flex: 0 0 64px;
+    margin: 0;
+  }
+  .fh-workspace .fh-sidebar-logout > img { width: 24px; height: 24px; object-fit: contain; }
+  .fh-workspace .fh-nav-button .fh-welcome-nav-label,
+  .fh-workspace .fh-nav-button .fh-consultation-nav-label { width: auto; }
+  .fh-workspace.fh-workspace .fh-main {
+    padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left));
+  }
+  .fh-workspace .fh-heading h1 { font-size: 22px; }
+  .fh-workspace .fh-card { min-height: 174px; }
+  .fh-workspace .fh-card h2 { font-size: 18px; line-height: 24px; }
+  .fh-workspace .fh-card p { font-size: 14px; line-height: 21px; }
+  .fh-workspace .fh-card-icon { width: 40px; height: 40px; }
+  .fh-workspace .fh-recommendation-icon { flex-shrink: 0; }
+  .fh-workspace .fh-recommendation h2 { align-items: flex-start; }
+
+  .fh-workspace .fh-composer {
+    position: sticky;
+    bottom: calc(var(--fh-mobile-nav-height) + env(safe-area-inset-bottom));
+    z-index: 1;
+    width: 100%;
+    gap: 10px;
+    padding: 12px 0;
+    background: #fff;
+  }
+  .fh-workspace .fh-composer textarea {
+    max-height: min(180px, 30dvh);
+    overflow-y: auto;
+    scroll-margin-bottom: calc(var(--fh-mobile-nav-height) + 24px);
+  }
+  .fh-workspace .fh-search,
+  .fh-workspace .fh-composer textarea,
+  .fh-workspace .fh-profile-fields input,
+  .fh-workspace .fh-profile-fields select,
+  .fh-workspace textarea { font-size: 16px; }
+  .fh-workspace .fh-search,
+  .fh-workspace .fh-profile-fields input,
+  .fh-workspace .fh-profile-fields select { min-height: 48px; }
+  .fh-workspace .fh-text-button { min-height: 44px; }
+  .fh-workspace .fh-profile-fields { grid-template-columns: minmax(0, 1fr); }
+  .fh-workspace .fh-profile-summary dl > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .fh-workspace .fh-profile-summary dt,
+  .fh-workspace .fh-profile-summary dd { min-width: 0; overflow-wrap: anywhere; }
+  .fh-workspace .fh-profile-summary { padding: 20px 16px; }
+  .fh-workspace .fh-profile-panel .fh-profile-edit-button { min-height: 44px; }
+  .fh-workspace .fh-profile-edit-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fh-workspace .fh-profile-edit-actions button { width: auto; min-width: 0; height: auto; min-height: 44px; padding: 8px; }
+  .fh-workspace .fh-tour {
+    inset: auto 16px calc(var(--fh-mobile-nav-height) + env(safe-area-inset-bottom) + 16px);
+    width: auto;
+    max-width: none;
+    max-height: calc(100dvh - var(--fh-mobile-nav-height) - env(safe-area-inset-bottom) - 40px);
+    overflow-y: auto;
+    box-shadow: 0 0 4px rgb(0 0 0 / 15%);
+  }
+  .fh-workspace .fh-tour-pointer { display: none; }
+
+  .fh-modal { max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .fh-chat-modal .fh-modal-inner { max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .fh-chat-modal .fh-modal-header { padding: 24px 20px 0; }
+  .fh-chat-dialog-meta { margin-left: 20px; margin-right: 20px; }
+  .fh-chat-source-content { padding: 20px 16px; }
+  .fh-chat-source-footer { padding: 16px; }
+  .fh-chat-sources-list { padding: 0 20px 24px; margin-top: 24px; }
+  .fh-chat-modal .fh-chat-view-all { margin-left: 0; }
+  .fh-chat-modal-close,
+  .fh-modal-external .fh-external-close { width: 44px; height: 44px; top: 0; right: 0; }
+  .fh-chat-source-row { min-height: 44px; }
+  .fh-modal-external .fh-external-actions .fh-button { min-height: 44px; }
+}

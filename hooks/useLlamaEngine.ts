@@ -21,7 +21,6 @@ import {
   NativeEmbeddingParams,
 } from 'llama.rn';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { SimilarityResult } from './useRagEngine';
 
@@ -56,11 +55,14 @@ const DEFAULT_CONTEXT_PARAMS: Partial<ContextParams> = {
  * Parámetros de generación de texto.
  */
 const DEFAULT_COMPLETION_PARAMS = {
-  temperature: 0.7,
+  temperature: 0.0,
   top_p: 0.9,
   top_k: 40,
 
-  // n_predict: 512,
+  // Explícito: llama.rn persiste n_predict entre completions; si el warmup
+  // corre con n_predict: 1 y generate no lo redefine, la respuesta se corta
+  // al primer token.
+  n_predict: 512,
 
   // stop: [
   //   '<|eot_id|>',
@@ -98,7 +100,7 @@ export function formatLlama3Prompt(
   return prompt;
 }
 
-type ChatLine = { role: 'system' | 'user' | 'assistant'; content: string };
+export type ChatLine = { role: 'system' | 'user' | 'assistant'; content: string };
 
 function fuentes(docs: SimilarityResult[]): string {
   return `<fuentes>
@@ -120,17 +122,48 @@ function contextRecuperado(docs: SimilarityResult[]): string {
     .join('\n')}`;
 }
 export function buildSystemPrompt(
-  // messages: Array<ChatLine>,
   docs: SimilarityResult[],
+  basePrompt?: string,
 ): string {
   return [
-    '\n\n',
-    // PROMT_CORE,
-    // fuentes(docs),
-    // prompt_acronyms,
-    // prompt_glossary,
+    ...(basePrompt
+      ? [basePrompt]
+      : [PROMT_CORE, prompt_acronyms, prompt_glossary]),
+    fuentes(docs),
     contextRecuperado(docs),
-  ].join();
+  ].join('\n\n');
+}
+
+/**
+ * Arma los mensajes para un chat completions remoto (OpenAI-compatible).
+ *
+ * A diferencia del modo local —que concatena todo en un único system prompt
+ * para aprovechar el KV cache de llama.cpp— acá el system message lleva solo
+ * el system prompt del paquete, y el bloque <fuentes> + CONTEXTO RECUPERADO
+ * viaja prefijado en el último mensaje del usuario (el turno actual), junto
+ * con la pregunta.
+ */
+export function buildRemoteMessages(
+  messages: ChatLine[],
+  docs: SimilarityResult[],
+  basePrompt?: string,
+): ChatLine[] {
+  const system =
+    basePrompt ?? [PROMT_CORE, prompt_acronyms, prompt_glossary].join('\n\n');
+  const contextBlock = [fuentes(docs), contextRecuperado(docs)].join('\n');
+  const lastUserIndex = messages.map(msg => msg.role).lastIndexOf('user');
+  const result: ChatLine[] = [{role: 'system', content: system}];
+  messages.forEach((msg, index) => {
+    if (index === lastUserIndex) {
+      result.push({
+        role: 'user',
+        content: `${contextBlock}\n\nCONSULTA:\n${msg.content}`,
+      });
+    } else {
+      result.push(msg);
+    }
+  });
+  return result;
 }
 
 
@@ -140,7 +173,7 @@ export function buildSystemPrompt(
  * Uso:
  *   const {
  *     status, modelName, error,
- *     loadModelFromPath, loadModelFromUrl,
+ *     loadModel,
  *     generate, stopGeneration,
  *     unloadModel,
  *   } = useLlamaEngine();
@@ -168,24 +201,20 @@ export function useLlamaEngine(options: {
 
   const contextRef = useRef<LlamaContext>(undefined);
   const abortRef = useRef<boolean>(false);
+  const warmupRef = useRef<Promise<void> | null>(null);
 
-  useEffect(() => {
-    return () => {
-      __releaseContext();
-    };
-  }, []);
-
-  async function __releaseContext() {
+  const releaseContext = useCallback(async () => {
+    warmupRef.current = null;
     if (contextRef.current) {
       try {
         await contextRef.current.release();
-      } catch (_) {}
+      } catch {}
       contextRef.current = undefined;
     }
-  }
+  }, []);
 
-  async function __initContext(path: string) {
-    await __releaseContext();
+  const initContext = useCallback(async (path: string) => {
+    await releaseContext();
 
     const params: ContextParams = {
       ...DEFAULT_CONTEXT_PARAMS,
@@ -198,31 +227,23 @@ export function useLlamaEngine(options: {
     }
 
     contextRef.current = await initLlama(params);
-  }
+  }, [contextParams, releaseContext]);
 
-  const loadModelFromPath = useCallback(async (file: string) => {
+  useEffect(() => {
+    return () => {
+      releaseContext().catch(() => undefined);
+    };
+  }, [releaseContext]);
+
+  const loadModel = useCallback(async (path: string) => {
     try {
       setStatus('loading');
       setError('');
-      // const asd = await RNFS.pathForBundle(`knowledge.current/${file}`)
-
-      const path = `knowledge.current/${file}`;
-      const folder = `${RNFS.TemporaryDirectoryPath}/models`;
-      const dest = `${folder}/${file}`;
-      const present = await RNFS.exists(dest);
-      if (!present) {
-        console.log('copy model to ', dest);
-        const exists = await RNFS.existsAssets(path);
-        if (!exists) throw new Error(`Archivo no encontdrado: ${path}`);
-        await RNFS.mkdir(folder);
-        await RNFS.copyFileAssets(path, dest);
+      if (!(await RNFS.exists(path))) {
+        throw new Error(`Modelo no encontrado: ${path}`);
       }
-
-      await __initContext(dest);
-      console.log('model loaded:', dest);
-
-      const name = path.split('/').pop();
-      setModelName(name);
+      await initContext(path);
+      setModelName(path.split('/').pop());
       setModelPath(path);
       setStatus('ready');
     } catch (err: unknown) {
@@ -230,14 +251,58 @@ export function useLlamaEngine(options: {
       setStatus('error');
       throw err;
     }
-  }, []);
+  }, [initContext]);
+
+  /**
+   * Precarga el system prompt estático en el KV cache del contexto.
+   *
+   * Corre una completion mínima (1 token) con el basePrompt solo — sin el
+   * bloque <fuentes> ni el CONTEXTO RECUPERADO, que son dinámicos. La query
+   * real comparte ese prefijo token a token, así que llama.cpp saltea su
+   * procesamiento (ahorro medido en Moto G72 + prompt largo: ~4 min → ~45 s).
+   *
+   * Es fire-and-forget: generate() espera a que termine si sigue corriendo.
+   */
+  const warmup = useCallback(
+    (systemPrompt?: string): Promise<void> => {
+      if (!contextRef.current) return Promise.resolve();
+      if (warmupRef.current) return warmupRef.current;
+      const staticPrefix =
+        systemPrompt ?? [PROMT_CORE, prompt_acronyms, prompt_glossary].join('\n\n');
+      const promise = (async () => {
+        try {
+          console.log('warmup: precargando system prompt en KV cache');
+          const t0 = Date.now();
+          await contextRef.current?.completion({
+            ...DEFAULT_COMPLETION_PARAMS,
+            ...completionParams,
+            enable_thinking: false,
+            n_predict: 1,
+            messages: [{role: 'system', content: staticPrefix}],
+          });
+          console.log(`warmup: listo en ${(Date.now() - t0) / 1000}s`);
+        } catch (err) {
+          console.log('warmup falló (no bloqueante):', toError(err).message);
+        }
+      })();
+      warmupRef.current = promise;
+      return promise;
+    },
+    [completionParams],
+  );
 
   const generate = useCallback(
     async (
       messages: ChatLine[],
       docs: SimilarityResult[],
       onPartialResponse: (p: string) => void,
+      systemPrompt?: string,
     ) => {
+      if (warmupRef.current) {
+        console.log('generate: esperando warmup...');
+        await warmupRef.current;
+        warmupRef.current = null;
+      }
       if (!contextRef.current) throw new Error('Modelo no cargado: generate');
       if (status === 'generating')
         throw new Error('Ya hay una generación en curso');
@@ -245,11 +310,12 @@ export function useLlamaEngine(options: {
       setStatus('generating');
       abortRef.current = false;
 
-      let system_prompt = buildSystemPrompt(docs);
+      const system_prompt = buildSystemPrompt(docs, systemPrompt);
 
       const params: CompletionParams = {
         ...DEFAULT_COMPLETION_PARAMS,
         ...completionParams,
+        enable_thinking: false,
         // prompt:"que onda",
         messages: [{
           role: "system",
@@ -297,7 +363,7 @@ export function useLlamaEngine(options: {
   );
 
   const vectorize = useCallback(
-    async (message: string) => {
+    async (message: string, queryPrefix = 'task: search result | query:') => {
       if (!contextRef.current) throw new Error('Modelo no cargado: vectorize');
       if (status === 'generating')
         throw new Error('Ya hay una generación en curso');
@@ -307,15 +373,15 @@ export function useLlamaEngine(options: {
 
       const params: NativeEmbeddingParams = {};
 
-      const GEMMA_PREFIX = 'task: search result | query:';
       try {
         const result = await contextRef.current.embedding(
-          `${GEMMA_PREFIX} ${message}`,
+          `${queryPrefix} ${message}`.trim(),
           params,
         );
         setStatus('ready');
         return result.embedding;
       } catch (err) {
+        console.error('LLM COMPLETION ERROR:', err);
         console.log(err);
         if (!abortRef.current) {
           setError(toError(err).message);
@@ -327,7 +393,7 @@ export function useLlamaEngine(options: {
         return [];
       }
     },
-    [status, completionParams],
+    [status],
   );
 
   /**
@@ -343,12 +409,12 @@ export function useLlamaEngine(options: {
    */
   const unloadModel = useCallback(async () => {
     stopGeneration();
-    await __releaseContext();
+    await releaseContext();
     setStatus('idle');
     setModelName(undefined);
     setModelPath(undefined);
     setTokensPerSec(0);
-  }, [stopGeneration]);
+  }, [releaseContext, stopGeneration]);
 
   return {
     status,
@@ -356,8 +422,9 @@ export function useLlamaEngine(options: {
     modelPath,
     error,
     tokensPerSec,
+    warmup,
     vectorize,
-    loadModelFromPath,
+    loadModel,
     generate,
     stopGeneration,
     unloadModel,

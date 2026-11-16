@@ -1,0 +1,285 @@
+/* Chatbot Desktop: Figma 380:534 and the original floating notice/composer. */
+@media (min-width: 641px) {
+  .fh-chat-desktop .fh-main { padding-bottom: 82px; }
+  .fh-chat-desktop .fh-heading-row { height: 20px; align-items: flex-start; }
+  .fh-chat-desktop .fh-back { width: 19px; height: 19px; min-height: 19px; margin-left: -3px; }
+  .fh-chat-desktop .fh-back img { width: auto; height: auto; transform: scaleX(-1); }
+  .fh-chat-desktop .fh-heading .fh-subtitle { width: 504px; }
+  .fh-chat-desktop .fh-chat-scroll { padding: 14px 0 16px; }
+  .fh-chat-desktop .fh-notice {
+    position: relative;
+    width: 655px;
+    max-width: 100%;
+    height: 120px;
+    margin: 0 0 24px;
+    padding: 15.338379px 18px;
+    border-radius: 14px;
+    background: #f5f6f9;
+  }
+  .fh-chat-desktop .fh-notice h2 {
+    width: 235px;
+    max-width: 100%;
+    margin: 0;
+    color: #0a0a0a;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 16px;
+    letter-spacing: 0;
+  }
+  .fh-chat-desktop .fh-notice p {
+    width: 615px;
+    max-width: 100%;
+    margin-top: 4.751465px;
+    color: #525252;
+    font-size: 13.5px;
+    font-weight: 400;
+    line-height: 17.5px;
+    letter-spacing: -0.3px;
+    white-space: pre-line;
+  }
+  .fh-chat-desktop .fh-notice button {
+    position: absolute;
+    right: 36px;
+    top: 83.910156px;
+    min-height: 16px;
+    width: 71px;
+    margin: 0;
+    color: #000;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 16px;
+    text-underline-position: from-font;
+    text-decoration-thickness: from-font;
+  }
+  .fh-chat-desktop .fh-message { font-size: 14.5px; line-height: 21.5px; letter-spacing: -0.150390625px; }
+  .fh-chat-desktop .fh-source-chip { max-width: 100%; overflow-wrap: anywhere; }
+  .fh-chat-desktop .fh-composer { width: 754px; max-width: 100%; gap: 19px; }
+  .fh-chat-desktop .fh-composer textarea {
+    padding: 11px 19px;
+    font-size: 14.5px;
+    font-weight: 400;
+    line-height: 22px;
+    letter-spacing: -0.150390625px;
+  }
+  .fh-chat-desktop .fh-composer textarea::placeholder { color: #a1a1a1; font-style: italic; }
+  .fh-chat-desktop .fh-send:disabled { opacity: 1; }
+}
+@media (min-width: 641px) and (max-width: 1000px) {
+  .fh-chat-desktop .fh-notice { height: auto; min-height: 120px; }
+  .fh-chat-desktop .fh-notice button { position: static; margin: 6px 0 0 auto; }
+}
+
+/* Source dialogs are scoped to Chatbot; other dialogs keep their presentation. */
+.fh-chat-modal {
+  width: min(632px, calc(100% - 32px));
+  max-width: calc(100% - 32px);
+  overflow: hidden;
+  border-radius: 22px;
+  color: #525252;
+  font-family: 'FH Poppins', sans-serif;
+}
+.fh-chat-modal .fh-modal-inner {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  overflow: hidden;
+}
+.fh-modal-chat-source .fh-modal-inner { min-height: min(424px, calc(100dvh - 48px)); }
+.fh-modal-chat-sources .fh-modal-inner { min-height: min(348px, calc(100dvh - 48px)); }
+.fh-chat-modal .fh-modal-header {
+  display: block;
+  flex-shrink: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 24px 31px 0;
+}
+.fh-chat-modal .fh-modal-header h2 {
+  min-width: 0;
+  margin: 0;
+  padding-right: 12px;
+  color: #404040;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+.fh-chat-modal-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+}
+.fh-chat-modal-close span {
+  width: 14px;
+  height: 14px;
+  background: #525252;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+.fh-chat-dialog-meta {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+  min-height: 16px;
+  margin: 13px 31px 0;
+  color: #a1a1a1;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+.fh-chat-dialog-meta img { flex-shrink: 0; max-width: none; }
+.fh-chat-source-content {
+  min-height: 0;
+  min-width: 0;
+  padding: 27px 24px 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.fh-chat-source-quote {
+  width: 549px;
+  max-width: 100%;
+  min-height: 224px;
+  margin: 0;
+  padding: 18.110352px 21.43px 28px 31.57px;
+  border-radius: 15px;
+  background: #f5f6f9;
+}
+.fh-chat-source-quote > img { display: block; max-width: none; margin-left: -1.57px; }
+.fh-chat-source-quote p {
+  margin-top: 13.743px;
+  color: #525252;
+  font-size: 14.5px;
+  font-weight: 400;
+  line-height: 21.5px;
+  letter-spacing: -0.150390625px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.fh-chat-source-document { margin-top: 12px; font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
+.fh-chat-source-document canvas { max-width: 100%; }
+.fh-chat-source-footer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 24px 18px;
+  margin-top: auto;
+}
+.fh-chat-footer-rule { position: absolute; top: 0; left: 0; max-width: none; pointer-events: none; }
+.fh-chat-open-source {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  justify-content: center;
+  min-width: 148px;
+  min-height: 38px;
+  border-radius: 6px;
+}
+.fh-chat-modal .fh-chat-open-source {
+  gap: 8.714px;
+  justify-content: flex-start;
+  width: 148px;
+  padding: 0 0 0 21.65px;
+  background: #f32735;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.fh-chat-open-source span { width: 81.729px; }
+.fh-chat-open-source img { flex-shrink: 0; max-width: none; }
+.fh-chat-open-source:disabled { opacity: 0.45; cursor: default; }
+.fh-chat-modal .fh-chat-view-all {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 165px;
+  min-height: 24px;
+  margin-left: auto;
+  color: #525252;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 17.5px;
+  letter-spacing: -0.3px;
+  text-align: left;
+}
+.fh-chat-view-all span { width: 132px; text-decoration: underline; text-underline-position: from-font; text-decoration-thickness: from-font; }
+.fh-chat-view-all img { max-width: none; }
+.fh-chat-sources-list {
+  min-height: 0;
+  margin-top: 39px;
+  padding: 0 44px 38px 30px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.fh-chat-source-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 14px;
+  align-items: start;
+  column-gap: 16px;
+  width: 100%;
+  padding: 16px 8px 16px 0;
+  text-align: left;
+}
+.fh-chat-source-entry:first-child .fh-chat-source-row { padding-top: 0; padding-bottom: 11px; }
+.fh-chat-source-entry:last-child .fh-chat-source-row { padding-bottom: 15px; }
+.fh-chat-source-row-arrow { max-width: none; }
+.fh-chat-source-entry:nth-child(2) .fh-chat-source-row > .fh-chat-source-row-arrow { transform: translateY(1px); }
+.fh-chat-source-entry:nth-child(3) .fh-chat-source-row > .fh-chat-source-row-arrow { transform: translateY(4px); }
+.fh-chat-row-rule { position: absolute; bottom: 0; left: 0; max-width: none; pointer-events: none; }
+.fh-chat-source-number {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: rgba(243, 39, 53, 0.07);
+  color: #f32735;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 16px;
+}
+.fh-chat-source-row-body { min-width: 0; }
+.fh-chat-source-row-body strong {
+  display: block;
+  color: #525252;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 17px;
+  letter-spacing: -0.150390625px;
+  overflow-wrap: anywhere;
+}
+.fh-chat-source-row-body small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 16px;
+  margin-top: 7px;
+  color: #a1a1a1;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+.fh-chat-source-row-body small img { flex-shrink: 0; max-width: none; }
+@media (max-width: 640px) {
+  .fh-chat-source-content { padding: 20px 16px; }
+  .fh-chat-source-footer { padding: 16px; }
+  .fh-chat-sources-list { padding-left: 20px; padding-right: 20px; }
+  .fh-chat-modal .fh-chat-view-all { margin-left: 0; }
+  .fh-chat-modal .fh-modal-header { padding-left: 20px; padding-right: 20px; }
+  .fh-chat-dialog-meta { margin-left: 20px; margin-right: 20px; }
+}

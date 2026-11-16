@@ -1,0 +1,267 @@
+@font-face {
+  font-family: 'Login Poppins';
+  src: url('/fonts/Poppins-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Login Poppins';
+  src: url('/fonts/Poppins-Medium.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Login Poppins';
+  src: url('/fonts/Poppins-SemiBold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+/* Geometry and colors from Figma Login 359:670. Overflow remains scrollable. */
+.login-desktop {
+  position: relative;
+  min-height: calc(1215px + 24px);
+  width: 100%;
+  background: #f5f6f9;
+  color: #000;
+  font-family: 'Login Poppins', sans-serif;
+  font-synthesis: none;
+}
+
+.login-desktop__frame {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1024px;
+  border: 1px solid rgb(0 0 0 / 19%);
+  background: #f5f6f9;
+  pointer-events: none;
+}
+
+.login-desktop__panel {
+  position: absolute;
+  top: 360px;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  border-radius: 61px;
+  background: #fff;
+  pointer-events: none;
+}
+
+.login-desktop__brand {
+  position: absolute;
+  top: 79px;
+  left: calc(50% + 0.5px);
+  width: 231px;
+  height: auto;
+  max-width: none;
+  transform: translateX(-50%);
+}
+
+.login-desktop__description {
+  position: absolute;
+  top: 209px;
+  left: calc(50% + 0.5px);
+  width: 395px;
+  height: 71px;
+  /* Match Figma's subpixel text baseline without changing the layer bounds. */
+  padding-top: 0.5px;
+  max-width: calc(100% - 40px);
+  margin: 0;
+  transform: translateX(-50%);
+  color: #525252;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 25.5px;
+  letter-spacing: -0.150390625px;
+  text-align: center;
+}
+
+.login-desktop__title {
+  position: absolute;
+  top: 406px;
+  left: calc(50% + 0.5px);
+  width: 397px;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  transform: translateX(-50%);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+}
+
+.login-desktop__form {
+  position: relative;
+  padding-top: 495px;
+  padding-bottom: 24px;
+  left: calc(50% + 2px);
+  width: min(474px, calc(100% - 48px));
+  margin: 0;
+  transform: translateX(-50%);
+}
+
+.login-desktop__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.login-desktop__field--efector {
+  margin-top: 8px;
+}
+
+.login-desktop__field label {
+  display: block;
+  width: 248px;
+  max-width: 100%;
+  height: 20px;
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.login-desktop__control {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 48px;
+  padding: 13px 18px;
+  border: 1px solid #d4d4d4;
+  border-radius: 7px;
+  outline: none;
+  background: #fff;
+  color: #525252;
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 20px;
+  opacity: 1;
+}
+
+.login-desktop__control::placeholder {
+  color: #d4d4d4;
+  opacity: 1;
+}
+
+.login-desktop__control--placeholder {
+  color: #d4d4d4;
+}
+
+.login-desktop__control:focus-visible {
+  border-color: #f32735;
+  outline: 2px solid rgb(243 39 53 / 20%);
+  outline-offset: 1px;
+}
+
+.login-desktop__field--name .login-desktop__control {
+  padding-left: 16px;
+}
+
+.login-desktop__field--mail .login-desktop__control {
+  padding-top: 15px;
+  padding-bottom: 11px;
+}
+
+.login-desktop__select {
+  appearance: none;
+  cursor: pointer;
+}
+
+.login-desktop__select option {
+  color: #525252;
+}
+
+.login-desktop__select:disabled {
+  cursor: default;
+}
+
+.login-desktop__select-wrapper {
+  position: relative;
+}
+
+.login-desktop__field--country .login-desktop__control {
+  padding: 16px 18px 10px 42px;
+}
+
+.login-desktop__field--province .login-desktop__control {
+  padding-top: 15px;
+  padding-bottom: 11px;
+}
+
+.login-desktop__country-chevron {
+  position: absolute;
+  z-index: 1;
+  top: 21px;
+  left: 17.0718px;
+  width: 13.8564px;
+  height: 12px;
+  max-width: none;
+  transform: rotate(180deg);
+  pointer-events: none;
+}
+
+.login-desktop__required {
+  position: relative;
+  left: -6px;
+  width: 123px;
+  height: 16px;
+  margin: 16px 0 0;
+  color: #525252;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.login-desktop__error {
+  margin: 16px 0 0;
+  color: #f32735;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.login-desktop__mail-error {
+  margin: 6px 0 0;
+  color: #f32735;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.login-desktop__control[aria-invalid='true'] {
+  border-color: #f32735;
+}
+
+.login-desktop__submit {
+  display: block;
+  width: calc(100% + 3px);
+  height: 48px;
+  margin: 76px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: #f32735;
+  color: #fff;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: -0.3125px;
+  cursor: pointer;
+}
+
+.login-desktop__submit:disabled {
+  background: rgb(243 39 53 / 25%);
+  cursor: default;
+}
+
+.login-desktop__submit:focus-visible {
+  outline: 2px solid #f32735;
+  outline-offset: 3px;
+}

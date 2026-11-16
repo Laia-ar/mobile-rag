@@ -1,93 +1,86 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-#set -x 
-QUESTION=$@
+COUNTRY="${1:-}"
+case "$COUNTRY" in
+  AR|BO) shift ;;
+  *) echo "Uso: ./test_knowledge.sh AR|BO 'pregunta'" >&2; exit 1 ;;
+esac
+QUESTION="$*"
+[ -n "$QUESTION" ] || { echo "Uso: ./test_knowledge.sh AR|BO 'pregunta'" >&2; exit 1; }
+: "${SQLITE_VEC_EXTENSION:?Definí SQLITE_VEC_EXTENSION con la ruta a vec0}"
 
-[ -z "$QUESTION" ] && echo missing question && exit 1
+ASSETS="android/app/src/main/assets/knowledge.current"
+MANIFEST="$ASSETS/manifest.json"
+[ -f "$MANIFEST" ] || { echo "Falta $MANIFEST" >&2; exit 1; }
 
-ASSETS=android/app/src/main/assets/knowledge.current
+CORPUS_ID=$(jq -er --arg country "$COUNTRY" '.corpus.countryIds[$country]' "$MANIFEST")
+DATABASE="$ASSETS/$(jq -er '.corpus.databasePath' "$MANIFEST")"
+MODEL="$ASSETS/$(jq -er '.embedding.modelPath' "$MANIFEST")"
+DIMENSIONS=$(jq -er '.embedding.retrievalDimensions' "$MANIFEST")
+QUERY_PREFIX=$(jq -er '.embedding.queryPrefix // ""' "$MANIFEST")
 
-MODEL=$ASSETS/all-MiniLM-L6-v2-ggml-model-f16.gguf
-DATABASE=$ASSETS/itsrag_2026-06-17_175741.db
+[ -f "$DATABASE" ] || { echo "Falta $DATABASE" >&2; exit 1; }
+[ -f "$MODEL" ] || { echo "Falta $MODEL" >&2; exit 1; }
 
-#MODEL=$ASSETS/embeddinggemma-300m-Q4_0.gguf
-#MODEL=$ASSETS/all-MiniLM-L6-v2
-#DATABASE=$ASSETS/corpus.sqlite
-
-MATRYOSHKA_256='.[:256] as $t | ($t | map(. * .) | add | sqrt) as $norm | $t | map(. / $norm)'
-
-#GEMMA PREFIX
-QUERY_PREFIX="task: search result | query:"
-VECTOR=$(llama-embedding -m "$MODEL" -ngl 99 -p "$QUERY_PREFIX $QUESTION" --embd-output-format "json" 2>/dev/null | jq -c .data[0].embedding | jq -c "$MATRYOSHKA_256")
-
-THRESHOLD=0.01
-
-# https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm
-# https://en.wikipedia.org/wiki/Full-text_search
-# https://sqlite.org/fts5.html
-# https://alexgarcia.xyz/blog/2024/sqlite-vec-hybrid-search/index.html
-
-# convert question into full text search filter
-# 1) remove bad chars: double quote, start, open close parentesis
-# 2) remove white space and replace with quote at the end
-# 3) remove white space and replace with quote at the begining
-# 4) split sentence in words and concatenate with OR
-FTS_FILTER=$(echo $QUESTION | sed 's/["\*\(\)]//g;s/ *$/"/;s/^ */"/;s/  */" OR "/g')
-
-QUERY="
-.param set :query_emb '$VECTOR'
-.param set :query_str '$FTS_FILTER'
-.param set :threshold $THRESHOLD
-.param set :corpus '4a767b76-1cba-4568-b4d9-f649fd6ccf0c'
-.param set :k 30
-.param set :rrf_k 60
-.param set :weight_fts 1.0
-.param set :weight_vec 1.0
-
-with vec_matches as (
-  select
-    c.id as chunk_id,
-    v.distance score
-  from chunks_vec as v
-  join chunks as c on c.rowid = v.rowid
-  where
-    v.embedding match (:query_emb)
-    and v.k = :k
-    and v.corpus_id = :corpus
-  order by v.distance
-),
-fts_matches as (
-  select
-    chunk_id,
-    text_for_display as text,
-    bm25(chunks_fts) AS score
-  from chunks_fts
-  where chunks_fts match (:query_str)
-    and corpus_id = :corpus
-  order by score
-  limit :k
-),
-final as (
-  select
-    documents.title,
-    chunks.content,
-    fts_matches.text_for_display as text,
-    vec_matches.score as vec_rank,
-    fts_matches.score as fts_rank,
-    (
-      coalesce(1.0 / (:rrf_k + fts_matches.score), 0.0) * :weight_fts +
-      coalesce(1.0 / (:rrf_k + vec_matches.score), 0.0) * :weight_vec
-    ) as combined_rank
-  from fts_matches
-  full outer join vec_matches on vec_matches.chunk_id = fts_matches.chunk_id
-  join chunks on chunks.id = coalesce(fts_matches.chunk_id, vec_matches.chunk_id)
-  join documents on documents.id = chunks.document_id
-  order by combined_rank desc
+RAW_VECTOR=$(
+  llama-embedding -m "$MODEL" -p "$QUERY_PREFIX$QUESTION" \
+    --embd-output-format json 2>/dev/null |
+    jq -c '.data[0].embedding'
 )
-select * from final where combined_rank > :threshold limit 5;
-"
+VECTOR=$(
+  jq -cn --argjson vector "$RAW_VECTOR" --argjson dims "$DIMENSIONS" '
+    ($vector[:$dims]) as $truncated |
+    ($truncated | map(. * .) | add | sqrt) as $norm |
+    $truncated | map(. / $norm)
+  '
+)
+FTS_FILTER=$(printf '%s' "$QUESTION" |
+  sed 's/["*()]//g; s/  */ /g; s/^ */"/; s/ *$/"/; s/ /" OR "/g')
 
-DOCS=$(echo "$QUERY"      | sqlite3 -readonly -cmd ".load $SQLITE/dist/vec0.so" $DATABASE -json)
-
-echo $DOCS | jq .
-echo $DOCS | jq '.[] | "Documento: \(.combined_rank) \(.title) \n==============\n\(.content)\n============"' -r
+sqlite3 -readonly -json \
+  -cmd ".load $SQLITE_VEC_EXTENSION" \
+  -cmd ".parameter init" \
+  -cmd ".parameter set :query_emb '$VECTOR'" \
+  -cmd ".parameter set :query_str '$FTS_FILTER'" \
+  -cmd ".parameter set :corpus '$CORPUS_ID'" \
+  "$DATABASE" <<'SQL' | jq .
+WITH vec_matches AS (
+  SELECT c.id AS chunk_id,
+         ROW_NUMBER() OVER (ORDER BY v.distance) AS rank
+  FROM chunks_vec v
+  JOIN chunks c ON c.rowid = v.rowid
+  WHERE v.embedding MATCH :query_emb
+    AND v.k = 30
+    AND v.corpus_id = :corpus
+),
+fts_matches AS (
+  SELECT chunk_id,
+         ROW_NUMBER() OVER (ORDER BY bm25(chunks_fts)) AS rank
+  FROM chunks_fts
+  WHERE chunks_fts MATCH :query_str
+    AND corpus_id = :corpus
+  ORDER BY bm25(chunks_fts)
+  LIMIT 30
+),
+ranked AS (
+  SELECT chunk_id, 1.0 / (60 + rank) AS score FROM vec_matches
+  UNION ALL
+  SELECT chunk_id, 1.0 / (60 + rank) AS score FROM fts_matches
+),
+scores AS (
+  SELECT chunk_id, SUM(score) AS similarity
+  FROM ranked
+  GROUP BY chunk_id
+)
+SELECT c.id AS chunk_id,
+       d.title,
+       c.page,
+       c.content,
+       scores.similarity
+FROM scores
+JOIN chunks c ON c.id = scores.chunk_id
+JOIN documents d ON d.id = c.document_id
+ORDER BY scores.similarity DESC
+LIMIT 5;
+SQL

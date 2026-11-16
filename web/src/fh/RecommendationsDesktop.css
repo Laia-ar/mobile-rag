@@ -1,0 +1,87 @@
+/* The original raster layer supplies only the four graphic badges as a CSS sprite.
+   Titles and body copy remain semantic, selectable HTML. The PNG is unmodified. */
+.fh-recommendation-icon {
+  display: block;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  background-repeat: no-repeat;
+  background-size: 495px 423px;
+  background-position-x: -21px;
+}
+.fh-recommendation-icon-person { background-position-y: -16.5px; }
+.fh-recommendation-icon-practices { background-position-y: -123px; }
+.fh-recommendation-icon-reason { background-position-y: -229.875px; }
+.fh-recommendation-icon-privacy { background-position-y: -322.5px; }
+
+/* Figma 381:978: header and navigation use structured properties.
+   Card measurements follow raster layer 381:1017 at its displayed scale. */
+@media (min-width: 641px) {
+  .fh-recommendations-desktop .fh-heading-row {
+    align-items: flex-start;
+    height: 20px;
+  }
+  .fh-recommendations-desktop .fh-back {
+    width: 19px;
+    height: 19px;
+    min-height: 19px;
+    margin-left: -3px;
+  }
+  .fh-recommendations-desktop .fh-back img {
+    width: auto;
+    height: auto;
+    transform: scaleX(-1);
+  }
+  .fh-recommendations-desktop .fh-heading h1 { width: 385px; }
+  .fh-recommendations-desktop .fh-heading .fh-subtitle { width: 656px; }
+  .fh-recommendations-desktop .fh-scroll { padding-top: 44.776596px; }
+  .fh-recommendations-desktop .fh-recommendations {
+    width: 733.138298px;
+    max-width: calc(100% - 0.87234px);
+    margin-left: 0.87234px;
+    gap: 16.968085px;
+  }
+  .fh-recommendations-desktop .fh-recommendation {
+    min-height: 149.787234px;
+    padding: 15.968085px 17.723404px 17.723404px;
+    border: 1px solid rgba(229, 229, 229, 0.5);
+    border-radius: 16.382979px;
+    background: #fff;
+    box-shadow: 0 1.170213px 2.340426px rgba(0, 0, 0, 0.04);
+  }
+  .fh-recommendations-desktop .fh-recommendation:nth-child(2) { min-height: 149.202128px; padding-top: 15.382979px; }
+  .fh-recommendations-desktop .fh-recommendation:nth-child(3) { min-height: 127.553191px; }
+  .fh-recommendations-desktop .fh-recommendation h2 {
+    gap: 9.361702px;
+    color: #0a0a0a;
+    font-family: 'FH Poppins', sans-serif;
+    font-size: 16.382979px;
+    font-weight: 700;
+    line-height: 23.404255px;
+    letter-spacing: 0;
+  }
+  .fh-recommendations-desktop .fh-recommendation-icon {
+    width: 37.446809px;
+    height: 37.446809px;
+    background-size: 772.340426px 660px;
+    background-position-x: -32.765957px;
+  }
+  .fh-recommendations-desktop .fh-recommendation-icon-person { background-position-y: -25.744681px; }
+  .fh-recommendations-desktop .fh-recommendation-icon-practices { background-position-y: -191.914894px; }
+  .fh-recommendations-desktop .fh-recommendation-icon-reason { background-position-y: -358.670213px; }
+  .fh-recommendations-desktop .fh-recommendation-icon-privacy { background-position-y: -503.191489px; }
+  .fh-recommendations-desktop .fh-recommendation p {
+    margin-top: 9.361702px;
+    color: #404040;
+    font-family: 'FH Poppins', sans-serif;
+    font-size: 14.042553px;
+    font-weight: 400;
+    line-height: 22.234043px;
+    letter-spacing: 0;
+    white-space: pre-line;
+  }
+  .fh-recommendations-desktop .fh-recommendation strong {
+    color: #0a0a0a;
+    font-weight: 600;
+  }
+}

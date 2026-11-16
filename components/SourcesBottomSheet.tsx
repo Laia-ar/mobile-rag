@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -8,448 +7,184 @@ import {
   Text,
   View,
 } from 'react-native';
-import { ChatbotMockDocument } from './chatbotMock';
+import {SourceReference} from '../types/knowledge';
 
 type SourcesBottomSheetProps = {
   visible: boolean;
-  sources: ChatbotMockDocument[];
+  sources: SourceReference[];
   selectedSourceId: string | null;
   savedSourceIds: string[];
-  showSavedConfirmation: boolean;
   onClose: () => void;
-  onSelectSource: (sourceId: string) => void;
-  onShowList: () => void;
-  onSaveSource: (sourceId: string) => void;
-  onOpenProfile: () => void;
-  onOpenDocument?: (source: ChatbotMockDocument) => void;
+  onSelectSource: (sourceId: string | null) => void;
+  onSaveSource: (source: SourceReference) => void;
+  onRemoveSource?: (chunkId: string) => void;
+  onOpenDocument: (source: SourceReference) => void | Promise<void>;
+  onOpenProfile?: () => void;
 };
-
-const sourceIcon = require('./source.png');
-const arrowRightIcon = require('./arrow-right.png');
-const bookmarkIcon = require('./bookmark.png');
-const bookmarkSavedIcon = require('./bookmark-saved.png');
-const savedCheckIcon = require('./saved-check.png');
-const externalLinkIcon = require('./external-link.png');
 
 export function SourcesBottomSheet({
   visible,
   sources,
   selectedSourceId,
   savedSourceIds,
-  showSavedConfirmation,
   onClose,
   onSelectSource,
-  onShowList,
   onSaveSource,
-  onOpenProfile,
+  onRemoveSource,
   onOpenDocument,
+  onOpenProfile,
 }: SourcesBottomSheetProps) {
-  const selectedSource =
-    sources.find(source => source.id === selectedSourceId) ?? null;
+  const selectedSource = sources.find(
+    source => source.chunkId === selectedSourceId,
+  );
 
   return (
     <Modal
-      animationType="fade"
+      animationType="slide"
       onRequestClose={onClose}
-      statusBarTranslucent
       transparent
-      visible={visible}
-    >
-      <View style={styles.modalRoot}>
+      visible={visible}>
+      <View style={styles.overlay}>
         <Pressable
           accessibilityLabel="Cerrar fuentes"
-          accessibilityRole="button"
           onPress={onClose}
-          style={styles.backdrop}
+          style={StyleSheet.absoluteFill}
         />
-        <View
-          style={[
-            styles.sheet,
-            selectedSource ? styles.detailSheet : styles.listSheet,
-          ]}
-        >
+        <View style={styles.sheet}>
           <View style={styles.handle} />
+          <View style={styles.header}>
+            {selectedSource ? (
+              <Pressable onPress={() => onSelectSource(null)} hitSlop={12}>
+                <Text style={styles.headerAction}>← Fuentes</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.title}>Fuentes recuperadas</Text>
+            )}
+            <Pressable onPress={onClose} hitSlop={12}>
+              <Text style={styles.headerAction}>Cerrar</Text>
+            </Pressable>
+          </View>
+
           {selectedSource ? (
             <SourceDetail
-              isSaved={savedSourceIds.includes(selectedSource.id)}
+              isSaved={savedSourceIds.includes(selectedSource.chunkId)}
               onOpenDocument={onOpenDocument}
-              onSave={() => onSaveSource(selectedSource.id)}
-              onShowList={onShowList}
+              onOpenProfile={onOpenProfile}
+              onRemoveSource={onRemoveSource}
+              onSaveSource={onSaveSource}
               source={selectedSource}
             />
           ) : (
-            <SourcesList sources={sources} onSelectSource={onSelectSource} />
+            <ScrollView contentContainerStyle={styles.list}>
+              {sources.map(source => (
+                <Pressable
+                  key={source.chunkId}
+                  onPress={() => onSelectSource(source.chunkId)}
+                  style={({pressed}) => [
+                    styles.sourceCard,
+                    pressed && styles.pressed,
+                  ]}>
+                  <Text numberOfLines={2} style={styles.sourceTitle}>
+                    {source.title}
+                  </Text>
+                  <Text style={styles.sourceMeta}>
+                    {source.institution || 'Guía clínica'}
+                    {source.page ? ` · pág. ${source.page}` : ''}
+                  </Text>
+                  <Text numberOfLines={3} style={styles.excerpt}>
+                    {source.content}
+                  </Text>
+                </Pressable>
+              ))}
+              {sources.length === 0 ? (
+                <Text style={styles.empty}>No hay fuentes para esta respuesta.</Text>
+              ) : null}
+            </ScrollView>
           )}
-
-          {selectedSource && showSavedConfirmation ? (
-            <View style={styles.savedConfirmation}>
-              <Image source={savedCheckIcon} style={styles.savedCheckIcon} />
-              <Text style={styles.savedConfirmationText}>
-                Guardado en tu perfil
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={onOpenProfile}
-                style={({ pressed }) => [
-                  styles.profileButton,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <Text style={styles.profileButtonText}>Ir a mi perfil</Text>
-              </Pressable>
-            </View>
-          ) : null}
         </View>
       </View>
     </Modal>
   );
 }
 
-function SourcesList({
-  sources,
-  onSelectSource,
-}: {
-  sources: ChatbotMockDocument[];
-  onSelectSource: (sourceId: string) => void;
-}) {
-  return (
-    <View style={styles.listContent}>
-      <Text style={styles.listTitle}>Fuentes de esta respuesta</Text>
-      <Text style={styles.listSubtitle}>{sources.length} documentos citados</Text>
-      <View style={styles.sourceList}>
-        {sources.map((source, index) => (
-          <Pressable
-            accessibilityLabel={`Abrir fuente ${index + 1}: ${source.title}`}
-            accessibilityRole="button"
-            key={source.id}
-            onPress={() => onSelectSource(source.id)}
-            style={({ pressed }) => [
-              styles.sourceListItem,
-              index < sources.length - 1 ? styles.sourceListItemDivider : null,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <View style={styles.sourceNumber}>
-              <Text style={styles.sourceNumberText}>{index + 1}</Text>
-            </View>
-            <View style={styles.sourceListText}>
-              <Text style={styles.sourceTitle}>{source.title}</Text>
-              <SourceMetadata source={source} />
-            </View>
-            <Image source={arrowRightIcon} style={styles.arrowRightIcon} />
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 function SourceDetail({
   source,
   isSaved,
-  onSave,
-  onShowList,
+  onSaveSource,
+  onRemoveSource,
   onOpenDocument,
+  onOpenProfile,
 }: {
-  source: ChatbotMockDocument;
+  source: SourceReference;
   isSaved: boolean;
-  onSave: () => void;
-  onShowList: () => void;
-  onOpenDocument?: (source: ChatbotMockDocument) => void;
+  onSaveSource: (source: SourceReference) => void;
+  onRemoveSource?: (chunkId: string) => void;
+  onOpenDocument: (source: SourceReference) => void | Promise<void>;
+  onOpenProfile?: () => void;
 }) {
   return (
-    <View style={styles.detailContent}>
+    <ScrollView contentContainerStyle={styles.detail}>
       <Text style={styles.detailTitle}>{source.title}</Text>
-      <SourceMetadata source={source} />
-
-      <ScrollView
-        contentContainerStyle={styles.quoteCardContent}
-        showsVerticalScrollIndicator={false}
-        style={styles.quoteCard}
-      >
-        <Text style={styles.quoteMark}>“</Text>
-        <Text style={styles.quoteText}>{source.excerpt}</Text>
-      </ScrollView>
-
-      <View style={styles.actionsRow}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => onOpenDocument?.(source)}
-          style={({ pressed }) => [
-            styles.actionButton,
-            styles.viewSourceButton,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Image source={externalLinkIcon} style={styles.externalLinkIcon} />
-          <Text style={styles.viewSourceText}>Ver fuente</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: isSaved }}
-          disabled={isSaved}
-          onPress={onSave}
-          style={({ pressed }) => [
-            styles.actionButton,
-            isSaved ? styles.savedButton : styles.saveButton,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <Image
-            source={isSaved ? bookmarkSavedIcon : bookmarkIcon}
-            style={styles.bookmarkIcon}
-          />
-          <Text style={styles.saveButtonText}>
-            {isSaved ? 'Guardado' : 'Guardar'}
-          </Text>
-        </Pressable>
-      </View>
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={onShowList}
-        style={({ pressed }) => [
-          styles.allSourcesButton,
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <Text style={styles.allSourcesText}>Ver todas las fuentes</Text>
-        <Image source={arrowRightIcon} style={styles.allSourcesArrow} />
-      </Pressable>
-    </View>
-  );
-}
-
-function SourceMetadata({ source }: { source: ChatbotMockDocument }) {
-  return (
-    <View style={styles.metadataRow}>
-      <Image source={sourceIcon} style={styles.sourceIcon} />
-      <Text numberOfLines={1} style={styles.metadataText}>
-        {source.institution} · {source.year} · {source.page}
+      <Text style={styles.sourceMeta}>
+        {source.institution || 'Guía clínica'}
+        {source.page ? ` · pág. ${source.page}` : ''}
+        {source.pageEnd && source.pageEnd !== source.page
+          ? `–${source.pageEnd}`
+          : ''}
       </Text>
-    </View>
+      {source.sectionPath?.length ? (
+        <Text style={styles.section}>{source.sectionPath.join(' › ')}</Text>
+      ) : null}
+      <Text selectable style={styles.detailContent}>
+        {source.content}
+      </Text>
+      <Pressable
+        onPress={() => Promise.resolve(onOpenDocument(source)).catch(() => undefined)}
+        style={styles.primaryButton}>
+        <Text style={styles.primaryButtonText}>
+          Abrir PDF{source.page ? ` en página ${source.page}` : ''}
+        </Text>
+      </Pressable>
+      <Pressable
+        onPress={() =>
+          isSaved ? onRemoveSource?.(source.chunkId) : onSaveSource(source)
+        }
+        style={styles.secondaryButton}>
+        <Text style={styles.secondaryButtonText}>
+          {isSaved ? 'Quitar de guardados' : 'Guardar fragmento'}
+        </Text>
+      </Pressable>
+      {isSaved && onOpenProfile ? (
+        <Pressable onPress={onOpenProfile} style={styles.profileLink}>
+          <Text style={styles.profileLinkText}>Revisar guardados en Perfil</Text>
+        </Pressable>
+      ) : null}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  modalRoot: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(29, 27, 32, 0.39)',
-  },
-  sheet: {
-    overflow: 'hidden',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    backgroundColor: '#FFFFFF',
-  },
-  listSheet: { height: 424 },
-  detailSheet: { height: 624 },
-  handle: {
-    width: 50,
-    height: 5,
-    alignSelf: 'center',
-    marginTop: 8,
-    borderRadius: 10,
-    backgroundColor: '#D9D9D9',
-  },
-  listContent: { flex: 1, paddingHorizontal: 24 },
-  listTitle: {
-    marginTop: 27,
-    color: '#404040',
-    fontSize: 18,
-    fontWeight: '600',
-    lineHeight: 20,
-  },
-  listSubtitle: {
-    marginTop: 4,
-    color: '#A1A1A1',
-    fontSize: 12.5,
-    lineHeight: 17.5,
-    letterSpacing: -0.3,
-  },
-  sourceList: { marginTop: 25, paddingHorizontal: 6 },
-  sourceListItem: {
-    minHeight: 88,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingTop: 1,
-  },
-  sourceListItemDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
-  },
-  sourceNumber: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 4,
-    backgroundColor: 'rgba(243, 39, 53, 0.07)',
-  },
-  sourceNumberText: {
-    color: '#F32735',
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 16,
-  },
-  sourceListText: { flex: 1, marginLeft: 16, paddingRight: 8 },
-  sourceTitle: {
-    color: '#525252',
-    fontSize: 15,
-    fontWeight: '500',
-    lineHeight: 17,
-    letterSpacing: -0.15,
-  },
-  metadataRow: {
-    minHeight: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 7,
-  },
-  sourceIcon: { width: 14, height: 12, marginRight: 6, resizeMode: 'contain' },
-  metadataText: {
-    flex: 1,
-    color: '#A1A1A1',
-    fontSize: 11,
-    lineHeight: 16,
-  },
-  arrowRightIcon: {
-    width: 14,
-    height: 14,
-    marginTop: 1,
-    resizeMode: 'contain',
-  },
-  detailContent: { flex: 1, paddingHorizontal: 24 },
-  detailTitle: {
-    marginTop: 23,
-    color: '#404040',
-    fontSize: 18,
-    fontWeight: '600',
-    lineHeight: 20,
-  },
-  quoteCard: {
-    flex: 1,
-    marginTop: 18,
-    borderRadius: 17,
-    backgroundColor: '#F5F6F9',
-  },
-  quoteCardContent: {
-    minHeight: 350,
-    paddingTop: 16,
-    paddingRight: 21,
-    paddingBottom: 18,
-    paddingLeft: 21,
-  },
-  quoteMark: {
-    height: 24,
-    color: '#F32735',
-    fontSize: 28,
-    fontWeight: '700',
-    lineHeight: 30,
-  },
-  quoteText: {
-    marginTop: 2,
-    color: '#525252',
-    fontSize: 14.5,
-    lineHeight: 21.5,
-    letterSpacing: -0.15,
-  },
-  actionsRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
-  actionButton: {
-    flex: 1,
-    height: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 6,
-  },
-  viewSourceButton: { backgroundColor: '#F32735' },
-  saveButton: { borderWidth: 1.2, borderColor: '#F32735' },
-  savedButton: { backgroundColor: '#FEE5E7' },
-  externalLinkIcon: {
-    width: 14,
-    height: 14,
-    marginRight: 8,
-    resizeMode: 'contain',
-  },
-  bookmarkIcon: {
-    width: 13,
-    height: 14,
-    marginRight: 7,
-    resizeMode: 'contain',
-  },
-  viewSourceText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 16,
-  },
-  saveButtonText: {
-    color: '#F32735',
-    fontSize: 17,
-    fontWeight: '500',
-    lineHeight: 24,
-    letterSpacing: -0.31,
-  },
-  allSourcesButton: {
-    minHeight: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  allSourcesText: {
-    color: '#525252',
-    fontSize: 12.5,
-    fontWeight: '500',
-    lineHeight: 17.5,
-    letterSpacing: -0.3,
-    textDecorationLine: 'underline',
-  },
-  allSourcesArrow: {
-    width: 14,
-    height: 14,
-    marginLeft: 5,
-    resizeMode: 'contain',
-  },
-  savedConfirmation: {
-    position: 'absolute',
-    right: 12,
-    bottom: 104,
-    left: 13,
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 14,
-    paddingRight: 13,
-    borderWidth: 1,
-    borderColor: 'rgba(33, 152, 116, 0.06)',
-    borderRadius: 11,
-    backgroundColor: '#D6F5E3',
-  },
-  savedCheckIcon: { width: 21, height: 21, resizeMode: 'contain' },
-  savedConfirmationText: {
-    flex: 1,
-    marginLeft: 7,
-    color: '#424242',
-    fontSize: 14.5,
-    lineHeight: 21.5,
-    letterSpacing: -0.15,
-  },
-  profileButton: {
-    width: 96,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 6,
-    backgroundColor: '#219874',
-  },
-  profileButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12.5,
-    fontWeight: '500',
-    lineHeight: 17.5,
-    letterSpacing: -0.3,
-  },
-  pressed: { opacity: 0.62 },
+  overlay: {flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.35)'},
+  sheet: {height: '82%', borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: '#FFFFFF', overflow: 'hidden'},
+  handle: {alignSelf: 'center', width: 42, height: 4, marginTop: 10, borderRadius: 2, backgroundColor: '#D4D4D4'},
+  header: {minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, borderBottomWidth: 1, borderBottomColor: '#E5E5E5'},
+  title: {fontSize: 18, fontWeight: '700', color: '#262626'},
+  headerAction: {fontSize: 15, fontWeight: '600', color: '#F32735'},
+  list: {padding: 16, gap: 12},
+  sourceCard: {padding: 14, borderWidth: 1, borderColor: '#E5E5E5', borderRadius: 12},
+  pressed: {opacity: 0.65},
+  sourceTitle: {fontSize: 16, fontWeight: '700', color: '#303030'},
+  sourceMeta: {marginTop: 5, fontSize: 13, color: '#737373'},
+  excerpt: {marginTop: 9, fontSize: 14, lineHeight: 20, color: '#525252'},
+  empty: {paddingTop: 30, textAlign: 'center', color: '#737373'},
+  detail: {padding: 18, paddingBottom: 36},
+  detailTitle: {fontSize: 21, lineHeight: 27, fontWeight: '700', color: '#262626'},
+  section: {marginTop: 10, fontSize: 13, color: '#F32735'},
+  detailContent: {marginTop: 18, fontSize: 15, lineHeight: 23, color: '#404040'},
+  primaryButton: {marginTop: 22, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 9, backgroundColor: '#F32735'},
+  primaryButtonText: {fontSize: 15, fontWeight: '600', color: '#FFFFFF'},
+  secondaryButton: {marginTop: 10, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#F32735', borderRadius: 9},
+  secondaryButtonText: {fontSize: 15, fontWeight: '600', color: '#F32735'},
+  profileLink: {alignItems: 'center', padding: 16},
+  profileLinkText: {fontSize: 14, color: '#525252', textDecorationLine: 'underline'},
 });

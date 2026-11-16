@@ -10,7 +10,14 @@
     "ios:prod": "react-native run-ios --scheme MyApp",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "test:unit": "jest --config jest.unit.config.js --runInBand",
+    "type-check": "tsc --noEmit",
+    "web:install": "pnpm --dir web install --frozen-lockfile",
+    "web:build": "pnpm --dir web build && node scripts/package-mobile-web.mjs",
+    "web:check": "pnpm --dir web type-check",
+    "android:v2": "pnpm web:build && react-native run-android --mode=localDebug --appIdSuffix=local",
+    "web:test": "pnpm web:build && pnpm --dir web exec playwright test"
   },
   "dependencies": {
     "@op-engineering/op-sqlite": "^16.2.0",
@@ -21,7 +28,8 @@
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-fs": "^2.20.0",
-    "react-native-safe-area-context": "^5.5.2"
+    "react-native-safe-area-context": "^5.5.2",
+    "react-native-webview": "^14.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
